@@ -1,0 +1,2521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dr. K Workflow</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+import React, { useState, useEffect } from 'react';
+
+const DailyTaskTracker = () => {
+  const [tasks, setTasks] = useState([]);
+  const [currentFilter, setCurrentFilter] = useState('all');
+  const [recapText, setRecapText] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [showRecapButtons, setShowRecapButtons] = useState(false);
+  const [isEditingRecap, setIsEditingRecap] = useState(false);
+  const [activeSection, setActiveSection] = useState('instructions'); // 'instructions', 'tasks', 'recap', 'travel'
+  const [expandedNotes, setExpandedNotes] = useState({});
+  
+  // Travel state
+  const initialTravelEntries = [
+  {
+    id: 1,
+    type: "Flight",
+    description: "ATL to Memphis - Flight DL1700 Departs at 4:15 PM",
+    startDate: "2026-02-26",
+    endDate: "2026-02-26",
+    location: "Memphis",
+    confirmation: "#GX5JAV",
+    url: "",
+    tags: ["Flight"]
+  },
+  {
+    id: 2,
+    type: "Hotel",
+    description: "Hilton Memphis Hotel",
+    startDate: "2026-02-26",
+    endDate: "2026-02-28",
+    location: "Memphis",
+    confirmation: "3395896664",
+    url: "",
+    tags: ["Hotel"]
+  },
+  {
+    id: 3,
+    type: "Course",
+    description: "The Lifestyle Formula In-Person Course with Dr. Kyle Fagala",
+    startDate: "2026-02-26",
+    endDate: "2026-02-28",
+    location: "Memphis",
+    confirmation: "#135768106673",
+    url: "",
+    tags: ["Course", "Event"]
+  },
+  {
+    id: 4,
+    type: "Flight",
+    description: "Memphis to ATL - Flight DL1693 Departs at 4:30",
+    startDate: "2026-02-28",
+    endDate: "2026-02-28",
+    location: "Atlanta, GA",
+    confirmation: "#GX5JAV",
+    url: "",
+    tags: ["Flight"]
+  },
+  {
+    id: 5,
+    type: "Flight",
+    description: "ATL to Phoenix Departs:",
+    startDate: "2026-04-17",
+    endDate: "2026-04-17",
+    location: "TBD",
+    confirmation: "TBD",
+    url: "",
+    tags: ["Flight"]
+  },
+  {
+    id: 6,
+    type: "Event",
+    description: "Nicole McFarlane Confirmed Registration Office Manager Workshop",
+    startDate: "2026-04-17",
+    endDate: "2026-04-18",
+    location: "TBD",
+    confirmation: "TBD",
+    url: "",
+    tags: ["Event", "Conference"]
+  },
+  {
+    id: 7,
+    type: "Hotel",
+    description: "Hotel",
+    startDate: "2026-04-17",
+    endDate: "2026-04-18",
+    location: "TBD",
+    confirmation: "TBD",
+    url: "",
+    tags: ["Hotel"]
+  },
+  {
+    id: 8,
+    type: "Flight",
+    description: "Phoenix to ATL Departs:",
+    startDate: "2026-04-18",
+    endDate: "2026-04-18",
+    location: "TBD",
+    confirmation: "TBD",
+    url: "",
+    tags: ["Flight"]
+  },
+  {
+    id: 9,
+    type: "Event",
+    description: "Transforming Lives with The Pitts21 Platform (Atlanta)",
+    startDate: "2026-06-05",
+    endDate: "2026-06-06",
+    location: "Atlanta, GA",
+    confirmation: "",
+    url: "",
+    tags: ["Event"]
+  },
+  {
+    id: 10,
+    type: "Event",
+    description: "Koch Family Reunion – Yellowstone 2026",
+    startDate: "2026-06-20",
+    endDate: "2026-06-27",
+    location: "TBD",
+    confirmation: "TBD",
+    url: "",
+    tags: ["Event"]
+  },
+  {
+    id: 11,
+    type: "Flight",
+    description: "? to ATL Departs:",
+    startDate: "2026-06-27",
+    endDate: "2026-06-27",
+    location: "TBD",
+    confirmation: "TBD",
+    url: "",
+    tags: ["Flight"]
+  }
+];
+  const [travelEntries, setTravelEntries] = useState(initialTravelEntries);
+  const [travelForm, setTravelForm] = useState({
+    type: 'Flight',
+    description: '',
+    startDate: '',
+    endDate: '',
+    location: '',
+    confirmation: '',
+    url: '',
+    tags: []
+  });
+  const [editingTravelId, setEditingTravelId] = useState(null);
+  const [travelSearchQuery, setTravelSearchQuery] = useState('');
+  const [travelTagFilter, setTravelTagFilter] = useState('all');
+  
+  // Available travel tags
+  const travelTags = ['Flight', 'Hotel', 'Car', 'Event', 'Conference', 'Course'];
+  
+  // Color customization
+  const [customColors, setCustomColors] = useState({
+    'FINANCE RELATED': '#9333ea', // purple
+    'OFFICE RELATED': '#3b82f6',  // blue
+    'PERSONAL RELATED': '#f97316', // orange
+    'REAL ESTATE': '#22c55e',     // green
+    'HOLD/OTHER': '#6b7280'       // gray
+  });
+  
+  // Recurring tasks
+  const [recurringTasks, setRecurringTasks] = useState([
+    { id: 1, description: 'Dry Cleaning', frequency: 'weekly', dayOfWeek: 2, category: 'Errands', tag: 'PERSONAL RELATED', enabled: true },
+    { id: 2, description: 'Quarterly Pest Control', frequency: 'quarterly', category: 'Review', tag: 'OFFICE RELATED', enabled: true },
+    { id: 3, description: 'Piano Tuning', frequency: 'custom', months: 5, category: 'Review', tag: 'PERSONAL RELATED', enabled: true }
+  ]);
+  
+  // Dark mode state
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem('darkMode');
+    if (saved !== null) return saved === 'true';
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
+  
+  // Form state
+  const [formData, setFormData] = useState({
+    category: 'Review',
+    tag: 'Office',
+    section: '',
+    description: '',
+    emailLink: '',
+    urgent: false,
+    attachments: []
+  });
+
+  // Load initial tasks
+  useEffect(() => {
+    loadTasksFromStorage();
+    checkUpcomingTravel();
+    // Don't load travel - already initialized with initialTravelEntries
+  }, []);
+
+  // Check for upcoming travel notifications
+  const checkUpcomingTravel = () => {
+    const today = new Date();
+    const threeDaysFromNow = new Date(today.getTime() + (3 * 24 * 60 * 60 * 1000));
+    
+    travelEntries.forEach(entry => {
+      const startDate = new Date(entry.startDate);
+      const daysUntil = Math.ceil((startDate - today) / (1000 * 60 * 60 * 24));
+      
+      if (daysUntil > 0 && daysUntil <= 3) {
+        const notificationKey = `travel-notif-${entry.id}-${entry.startDate}`;
+        const alreadyShown = localStorage.getItem(notificationKey);
+        
+        if (!alreadyShown) {
+          setTimeout(() => {
+            alert(`🔔 Upcoming Travel Reminder!\n\n${entry.description}\n📅 ${entry.startDate}\n⏰ ${daysUntil} day${daysUntil > 1 ? 's' : ''} away!`);
+            localStorage.setItem(notificationKey, 'true');
+          }, 1000);
+        }
+      }
+    });
+  };
+
+  // Check for date change and auto-clear completed tasks
+  useEffect(() => {
+    const checkDateChange = () => {
+      const today = new Date().toDateString();
+      const lastDate = localStorage.getItem('lastActiveDate');
+      
+      if (lastDate && lastDate !== today) {
+        // Date changed - clear completed tasks and mark incomplete as carried over
+        const updatedTasks = tasks.map(task => ({
+          ...task,
+          carriedOver: !task.completed ? true : task.carriedOver
+        })).filter(task => !task.completed);
+        
+        setTasks(updatedTasks);
+        saveTasksToStorage(updatedTasks);
+      }
+      
+      localStorage.setItem('lastActiveDate', today);
+    };
+    
+    checkDateChange();
+    // Check every minute for date change
+    const interval = setInterval(checkDateChange, 60000);
+    return () => clearInterval(interval);
+  }, [tasks]);
+
+  const loadTasksFromStorage = async () => {
+    try {
+      // Try to load tasks from shared storage
+      const result = await window.storage.get('daily-tasks', true);
+      if (result && result.value) {
+        const savedTasks = JSON.parse(result.value);
+        setTasks(savedTasks);
+      } else {
+        // Load initial demo tasks if nothing in storage
+        loadInitialTasks();
+      }
+    } catch (error) {
+      console.log('No existing tasks, loading initial tasks');
+      loadInitialTasks();
+    }
+  };
+
+  const loadInitialTasks = () => {
+    const initialTasks = [
+  {
+    id: 1,
+    category: "Respond",
+    tag: "Finance",
+    description: "Doug says the 2025 asset list needs your review to confirm any equipment that was purchased or disposed of last year. The CPA needs this for depreciation records, and the submission is already about a week behind. Please review and note any changes. • Anything sold or disposed of?  or if any new equipment purchased that’s missing?  If everything looks right, just reply “no changes.”Also, a property tax form will arrive by mail — once it does, we just need to forward it to Doug’s team for filing.",
+    urgent: false,
+    completed: false,
+    notes: "",
+    emailLink: "",
+    carriedOver: false,
+    attachments: []
+  },
+  {
+    id: 2,
+    category: "Sign",
+    tag: "Other",
+    description: "SATURDAY DEADLINE: Personal Taxes: Jonathan White CPA needs you to sign the 2025 Tax Engagement Letter (link here) so they can prepare your personal tax return.\nSteps: Download the PDF Sign it (spouse signature if applicable)\nDeadline: January 31 This is standard paperwork authorizing them to handle your 2025 taxes. Review Tax Return Procedures",
+    urgent: true,
+    completed: false,
+    notes: "",
+    emailLink: "",
+    carriedOver: false,
+    attachments: []
+  },
+  {
+    id: 3,
+    category: "Sign",
+    tag: "Office",
+    description: "You received another notification to sign the Corp engagement letter with JWCPA click here to open",
+    urgent: false,
+    completed: false,
+    notes: "",
+    emailLink: "",
+    carriedOver: false,
+    attachments: []
+  },
+  {
+    id: 4,
+    category: "Hold",
+    tag: "Office",
+    description: "Dr. Simon Pay Recap (Feb 1–Dec 22, 2025): $299,550.98\nProduction 2/1/25-12/17/25: 52,217",
+    urgent: false,
+    completed: false,
+    notes: "",
+    emailLink: "",
+    carriedOver: false,
+    attachments: []
+  },
+  {
+    id: 5,
+    category: "Review",
+    tag: "Other",
+    description: "Fundamentals of Aligner Orthodontics 2.0 course has a completion deadline of February 15, 2026 to unlock your CE credits. You’re already 31% through, so just wanted to make sure it stays on your radar with about a month left. You’ll keep access to the content forever, but the CE credits are time-sensitive.",
+    urgent: true,
+    completed: false,
+    notes: "",
+    emailLink: "",
+    carriedOver: false,
+    attachments: []
+  },
+  {
+    id: 6,
+    category: "Review",
+    tag: "Office",
+    description: "Doug shared CPI data showing 2025 inflation by category (food, energy, medical, insurance, etc.) to provide context for rising costs—especially utilities, hospital services, and food/beverages—likely for budgeting and planning purposes. Click the link to view additional data",
+    urgent: false,
+    completed: false,
+    notes: "",
+    emailLink: "",
+    carriedOver: false,
+    attachments: []
+  },
+  {
+    id: 7,
+    category: "Review",
+    tag: "Office",
+    description: "Braselton rental payment instructions available for review at this link.",
+    urgent: false,
+    completed: false,
+    notes: "",
+    emailLink: "",
+    carriedOver: false,
+    attachments: []
+  },
+  {
+    id: 8,
+    category: "Respond",
+    tag: "Office",
+    description: "Review Dr. Gass compensation and respond back.",
+    urgent: false,
+    completed: false,
+    notes: "",
+    emailLink: "",
+    carriedOver: false,
+    attachments: []
+  },
+  {
+    id: 9,
+    category: "No Action Needed",
+    tag: "Office",
+    description: "HIP Google Ads Review & Next Steps:  HIP Google Ads managment +$1,500/month, no new contract is required—billing will simply be adjusted.",
+    urgent: false,
+    completed: false,
+    notes: "",
+    emailLink: "",
+    carriedOver: false,
+    attachments: []
+  },
+  {
+    id: 10,
+    category: "Review",
+    tag: "Office",
+    description: "Dr. Simons Exit Questionnaire\nShelby shared Dr. Simon’s exit questionnaire and flagged that there are some valuable learning takeaways. She asked if you’re experiencing similar concerns regarding Alyssa’s leadership.\nLink to review: https://docs.google.com/document/d/1M8VORJvMuq9HP_uXaQB7gucydRc6o-oepmytpzMvOxY/edit?usp=sharing",
+    urgent: false,
+    completed: false,
+    notes: "",
+    emailLink: "",
+    carriedOver: false,
+    attachments: []
+  },
+  {
+    id: 11,
+    category: "Respond",
+    tag: "Office",
+    description: "Scott Zanardo emailed asking if you’d be willing to leave him a Google review. He included a direct link and requested you mention that they designed your orthodontic practice in Braselton, your experience working together, and how the final design turned out. Let me know if you’d like me to draft it for you.",
+    urgent: false,
+    completed: false,
+    notes: "",
+    emailLink: "",
+    carriedOver: false,
+    attachments: []
+  },
+  {
+    id: 12,
+    category: "Review",
+    tag: "Office",
+    description: "HIP Creative sent you access to the 3 trainings you purchased yesterday: PracticeBeacon Training, Front Desk Secrets, and the Community Outreach Kit. Training links for each have been provided. Shared JP to share with Mackensie and Madison",
+    urgent: false,
+    completed: false,
+    notes: "",
+    emailLink: "",
+    carriedOver: false,
+    attachments: []
+  },
+  {
+    id: 13,
+    category: "Review",
+    tag: "Office",
+    description: "I emailed Jonathan and Kristin to confirm the final 1099 reporting amount (net of the $19K gift) and let them know my W-9 has already been submitted through their portal.\nHave you had a chance to connect with Jonathan yet to finalize the additional details you wanted to discuss?",
+    urgent: false,
+    completed: false,
+    notes: "",
+    emailLink: "",
+    carriedOver: false,
+    attachments: []
+  },
+  {
+    id: 14,
+    category: "Review",
+    tag: "Finance",
+    description: "My Invoice #1142 Hours Worked 1/12/2026 through 1/25/2026 at this link",
+    urgent: false,
+    completed: false,
+    notes: "",
+    emailLink: "",
+    carriedOver: false,
+    attachments: []
+  },
+  {
+    id: 15,
+    category: "Sign",
+    tag: "Finance",
+    description: "PNC Annual Review – Personal Financial Statement--->> Please review the link here to confirm what needs to be updated.  PNC requires a current, signed, and newly dated Personal Financial Statement for the annual review. Doug confirmed we can reuse the 2024 PNC form and update the values to current figures, but you'll need to provide updated amounts (and any new 2025 items). Once you send those numbers, Doug will edit the form and send it to Julie at PNC for signature and submission.",
+    urgent: false,
+    completed: false,
+    notes: "",
+    emailLink: "",
+    carriedOver: false,
+    attachments: []
+  },
+  {
+    id: 16,
+    category: "PAY",
+    tag: "Office",
+    description: "Greg sent the final Pay App #4 for Braselton. All punch list items are complete. Coffee bar tile + restroom wallpaper arrive in February and will be installed then. Change Order #3 includes frosted consult room windows and staff bathroom hardware updates. Final waivers/warranties are in Dropbox.",
+    urgent: false,
+    completed: false,
+    notes: "",
+    emailLink: "",
+    carriedOver: false,
+    attachments: []
+  },
+  {
+    id: 17,
+    category: "Review",
+    tag: "Office",
+    description: "Tenant Allowance ($112K – Braselton): Doug reminded us the allowance is paid within 45 days once all items are submitted.Provide final plans from Scott Z., obtain notarized lien waivers/paid receipts from Hobgood & Zanardo, and confirm W-9 (CO already received). We have 180 days from rent start to request or the allowance is forfeited.",
+    urgent: false,
+    completed: false,
+    notes: "",
+    emailLink: "",
+    carriedOver: false,
+    attachments: []
+  },
+  {
+    id: 18,
+    category: "Review",
+    tag: "Other",
+    description: "Hinman Reserve Committee meeting is on Monday, Feb. 9 at 6 PM (virtual). RSVP by Feb. 6 using your ADA number. Zoom link will be sent the day of. Attendance is required to qualify for the March 12 reception. https://www.hinman.org/",
+    urgent: false,
+    completed: false,
+    notes: "",
+    emailLink: "",
+    carriedOver: false,
+    attachments: []
+  },
+  {
+    id: 19,
+    category: "Review",
+    tag: "Other",
+    description: "📩 Webinar Invite – Practice Values (2025 Review / 2026 Forecast)\nYou received an email from Alisa Fairweather (Large Practice Sales) inviting you to a free webinar on Thursday, January 29,  7:00p ET, 9:00p ET or,  11:00p ET discussing which practices achieved record values in 2025 and why 2026 may be different. Topics include EBITDA improvement, IDSO partnerships, recruiting/retention strategies, legacy practice value, and 2026–2027 outlook. Multiple evening time options are available.\nAction: Decide if you’d like to attend and select a time to register.",
+    urgent: false,
+    completed: false,
+    notes: "",
+    emailLink: "",
+    carriedOver: false,
+    attachments: []
+  },
+  {
+    id: 20,
+    category: "Respond",
+    tag: "Other",
+    description: "📩 EVENT INVITATION – Neal Jones Private Dinner You received an email invitation from Neal Jones to a private celebration/dinner party. The message includes a personalized Punchbowl invitation with links to view details and RSVP. It asks that the invitation not be forwarded. Action: Review the invitation and RSVP if you’d like to attend.",
+    urgent: false,
+    completed: false,
+    notes: "",
+    emailLink: "",
+    carriedOver: false,
+    attachments: []
+  },
+  {
+    id: 21,
+    category: "Respond",
+    tag: "Other",
+    description: "John Honeycutt: He enjoyed your call Sunday and would like to schedule a Zoom within the next couple of weeks. He’s asking you to share 2–3 date/time options.  Please let me know if you'd like me to schedule it.",
+    urgent: false,
+    completed: false,
+    notes: "",
+    emailLink: "",
+    carriedOver: false,
+    attachments: []
+  },
+  {
+    id: 22,
+    category: "Review",
+    tag: "Other",
+    description: "🐱 Pet Microchip Information\nIsabel Microchip #: 941010004669419\nMilton Microchip #: 992000004989964\nRegistry: 24Petwatch / PetPlace\nServices Offered: Lost pet recovery, direct finder contact, vet helpline, medical profile storage\nRegistry: https://www.24petwatch.com",
+    urgent: false,
+    completed: false,
+    notes: "",
+    emailLink: "",
+    carriedOver: false,
+    attachments: []
+  },
+  {
+    id: 23,
+    category: "Review",
+    tag: "Other",
+    description: "🐱 Cat Emails — Quick Recap\nVCA Animal Hospitals (Legitimate – Marketing)\nFree exam + 24/7 vet chat offer\nLikely sent due to prior visit/adoption\nLink: https://vcahospitals.com\nKittySpout \nManage water fountain / supplement subscription\nLink: https://kittyspout.com \n24Petwatch / PetPlace \nPet insurance quote for Isabel Shared through pet registry/microchip records\nLink: https://www.24petwatch.com",
+    urgent: false,
+    completed: false,
+    notes: "",
+    emailLink: "",
+    carriedOver: false,
+    attachments: []
+  },
+  {
+    id: 24,
+    category: "Review",
+    tag: "Other",
+    description: "Schulman Orthodontic Group Reivew New Website The old member site is no longer in use; new login credentials are required. Members should bookmark the new site, update their profile, and optionally add team members for limited access. Questions should be directed to Ann Sebaugh. Use this link to sign on for the first time \nhttps://member.schulmangroup.com/auth/join/PFgeauvKu1J7dpjeVcxA3",
+    urgent: false,
+    completed: false,
+    notes: "",
+    emailLink: "",
+    carriedOver: false,
+    attachments: []
+  },
+  {
+    id: 25,
+    category: "No Action Needed",
+    tag: "Other",
+    description: "Jeff confirmed he has shared the full asking price with the buyer. He agrees the current offer is too low and believes the only potential path forward would be to subdivide the rear parcel and sell part of it, rather than selling both front parcels at a reduced value.",
+    urgent: false,
+    completed: false,
+    notes: "",
+    emailLink: "",
+    carriedOver: false,
+    attachments: []
+  },
+  {
+    id: 26,
+    category: "Hold",
+    tag: "Other",
+    description: "Law Firm Engagement Letter:\n$5,000 retainer for due-diligence on permitted uses and preliminary city discussions.\n* If moving forward with rezoning/variance, additional $5,000 retainer required.\n* Not flat fees — all work billed hourly (Partner $515/hr, Associate $375/hr, Paralegal $220/hr).\n* Monthly invoices; additional funds required if work exceeds retainer.\n* Rezoning work includes application prep, city communications, community outreach, and attending hearings.\nAppeals/litigation not included — requires a new agreement.\n* Client pays out-of-pocket expenses; must raise any fee concerns within 60 days; disputes go to arbitration.\n* Either party may terminate with notice; files kept 7 years then destroyed.`",
+    urgent: false,
+    completed: false,
+    notes: "",
+    emailLink: "",
+    carriedOver: false,
+    attachments: []
+  },
+  {
+    id: 27,
+    category: "No Action Needed",
+    tag: "Finance",
+    description: "Google Home Premium – Brentford Cove: Summary of your claim\nClaim ID:\n3851-3572-6170\nStatus: Pending\nWe sent a confirmation to ko******b@gmail.com. It typically takes 7 days to investigate an unauthorized purchase. We'll send updates by email and you can return to this page to view your claim status. This claim can be canceled up to 24 hours after submission.",
+    urgent: false,
+    completed: false,
+    notes: "",
+    emailLink: "",
+    carriedOver: false
+  }
+];
+    setTasks(initialTasks);
+    saveTasksToStorage(initialTasks);
+  };
+
+  const saveTasksToStorage = async (tasksToSave) => {
+    try {
+      await window.storage.set('daily-tasks', JSON.stringify(tasksToSave), true);
+    } catch (error) {
+      console.error('Error saving tasks:', error);
+    }
+  };
+
+  const addTask = async () => {
+    if (!formData.description.trim()) {
+      alert('Please enter a task description');
+      return;
+    }
+
+    const newTask = {
+      id: Date.now(),
+      ...formData,
+      completed: false,
+      notes: "",
+      emailLink: formData.emailLink,
+      carriedOver: false
+    };
+
+    const updatedTasks = [...tasks, newTask];
+    setTasks(updatedTasks);
+    await saveTasksToStorage(updatedTasks);
+    
+    setFormData({
+      category: 'Review',
+      tag: 'Office',
+      section: '',
+      description: '',
+      emailLink: '',
+      urgent: false,
+      attachments: []
+    });
+  };
+
+  const toggleComplete = async (id) => {
+    const updatedTasks = tasks.map(task => 
+      task.id === id ? { ...task, completed: !task.completed } : task
+    );
+    setTasks(updatedTasks);
+    await saveTasksToStorage(updatedTasks);
+  };
+
+  const deleteTask = async (id) => {
+    if (window.confirm('Delete this task?')) {
+      const updatedTasks = tasks.filter(task => task.id !== id);
+      setTasks(updatedTasks);
+      await saveTasksToStorage(updatedTasks);
+    }
+  };
+
+  const updateTaskNotes = async (id, notes) => {
+    const updatedTasks = tasks.map(task =>
+      task.id === id ? { ...task, notes } : task
+    );
+    setTasks(updatedTasks);
+    await saveTasksToStorage(updatedTasks);
+  };
+
+  const toggleUrgent = async (id) => {
+    const updatedTasks = tasks.map(task =>
+      task.id === id ? { ...task, urgent: !task.urgent } : task
+    );
+    setTasks(updatedTasks);
+    await saveTasksToStorage(updatedTasks);
+  };
+
+  // Travel Management Functions
+  const loadTravelEntries = async () => {
+    try {
+      const result = await window.storage.get('travel-entries', true);
+      if (result && result.value) {
+        const entries = JSON.parse(result.value);
+        setTravelEntries(entries.sort((a, b) => new Date(a.startDate) - new Date(b.startDate)));
+      } else {
+        // Load initial sample data if nothing in storage
+        const initialEntries = [
+          {
+            id: 1,
+            type: 'Flight',
+            description: 'ATL to Memphis - Flight DL1700 Departs at 4:15 PM',
+            startDate: '2026-02-26',
+            endDate: '2026-02-26',
+            location: 'Memphis',
+            confirmation: '#GX5JAV'
+          },
+          {
+            id: 2,
+            type: 'Hotel',
+            description: 'Hilton Memphis Hotel',
+            startDate: '2026-02-26',
+            endDate: '2026-02-28',
+            location: 'Memphis',
+            confirmation: '3395896664'
+          },
+          {
+            id: 3,
+            type: 'Course',
+            description: 'The Lifestyle Formula In-Person Course with Dr. Kyle Fagala',
+            startDate: '2026-02-26',
+            endDate: '2026-02-28',
+            location: 'Memphis',
+            confirmation: '#135768106673'
+          },
+          {
+            id: 4,
+            type: 'Flight',
+            description: 'Memphis to ATL - Flight DL1693 Departs at 4:30',
+            startDate: '2026-02-28',
+            endDate: '2026-02-28',
+            location: 'Atlanta, GA',
+            confirmation: '#GX5JAV'
+          },
+          {
+            id: 5,
+            type: 'Flight',
+            description: '? to ATL to Phoenix Departs:',
+            startDate: '2026-04-17',
+            endDate: '2026-04-17',
+            location: 'TBD',
+            confirmation: 'TBD'
+          }
+        ];
+        setTravelEntries(initialEntries);
+        await saveTravelEntries(initialEntries);
+      }
+    } catch (error) {
+      console.log('No existing travel entries, loading initial data');
+      const initialEntries = [
+        {
+          id: 1,
+          type: 'Flight',
+          description: 'ATL to Memphis - Flight DL1700 Departs at 4:15 PM',
+          startDate: '2026-02-26',
+          endDate: '2026-02-26',
+          location: 'Memphis',
+          confirmation: '#GX5JAV'
+        },
+        {
+          id: 2,
+          type: 'Hotel',
+          description: 'Hilton Memphis Hotel',
+          startDate: '2026-02-26',
+          endDate: '2026-02-28',
+          location: 'Memphis',
+          confirmation: '3395896664'
+        },
+        {
+          id: 3,
+          type: 'Course',
+          description: 'The Lifestyle Formula In-Person Course with Dr. Kyle Fagala',
+          startDate: '2026-02-26',
+          endDate: '2026-02-28',
+          location: 'Memphis',
+          confirmation: '#135768106673'
+        },
+        {
+          id: 4,
+          type: 'Flight',
+          description: 'Memphis to ATL - Flight DL1693 Departs at 4:30',
+          startDate: '2026-02-28',
+          endDate: '2026-02-28',
+          location: 'Atlanta, GA',
+          confirmation: '#GX5JAV'
+        },
+        {
+          id: 5,
+          type: 'Flight',
+          description: '? to ATL to Phoenix Departs:',
+          startDate: '2026-04-17',
+          endDate: '2026-04-17',
+          location: 'TBD',
+          confirmation: 'TBD'
+        }
+      ];
+      setTravelEntries(initialEntries);
+    }
+  };
+
+  const saveTravelEntries = async (entries) => {
+    try {
+      await window.storage.set('travel-entries', JSON.stringify(entries), true);
+    } catch (error) {
+      console.error('Error saving travel entries:', error);
+    }
+  };
+
+  const addTravelEntry = async () => {
+    if (!travelForm.description || !travelForm.startDate) {
+      alert('Please enter at least a description and start date');
+      return;
+    }
+
+    const newEntry = {
+      id: Date.now(),
+      ...travelForm
+    };
+
+    const updatedEntries = [...travelEntries, newEntry].sort((a, b) => 
+      new Date(a.startDate) - new Date(b.startDate)
+    );
+    
+    setTravelEntries(updatedEntries);
+    await saveTravelEntries(updatedEntries);
+    
+    // Reset form
+    setTravelForm({
+      type: 'Flight',
+      description: '',
+      startDate: '',
+      endDate: '',
+      location: '',
+      confirmation: '',
+      url: '',
+      tags: []
+    });
+  };
+
+  const deleteTravelEntry = async (id) => {
+    if (window.confirm('Delete this travel entry?')) {
+      const updatedEntries = travelEntries.filter(entry => entry.id !== id);
+      setTravelEntries(updatedEntries);
+      await saveTravelEntries(updatedEntries);
+    }
+  };
+
+  const startEditTravel = (entry) => {
+    setEditingTravelId(entry.id);
+    setTravelForm({
+      type: entry.type,
+      description: entry.description,
+      startDate: entry.startDate,
+      endDate: entry.endDate,
+      location: entry.location,
+      confirmation: entry.confirmation
+    });
+  };
+
+  const saveEditTravel = async () => {
+    const updatedEntries = travelEntries.map(entry =>
+      entry.id === editingTravelId ? { ...entry, ...travelForm } : entry
+    ).sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+    
+    setTravelEntries(updatedEntries);
+    await saveTravelEntries(updatedEntries);
+    setEditingTravelId(null);
+    
+    // Reset form
+    setTravelForm({
+      type: 'Flight',
+      description: '',
+      startDate: '',
+      endDate: '',
+      location: '',
+      confirmation: '',
+      url: '',
+      tags: []
+    });
+  };
+
+  const cancelEditTravel = () => {
+    setEditingTravelId(null);
+    setTravelForm({
+      type: 'Flight',
+      description: '',
+      startDate: '',
+      endDate: '',
+      location: '',
+      confirmation: '',
+      url: '',
+      tags: []
+    });
+  };
+
+  const moveTravelUp = async (index) => {
+    if (index === 0) return; // Already at top
+    const updatedEntries = [...travelEntries];
+    [updatedEntries[index - 1], updatedEntries[index]] = [updatedEntries[index], updatedEntries[index - 1]];
+    setTravelEntries(updatedEntries);
+    await saveTravelEntries(updatedEntries);
+  };
+
+  const moveTravelDown = async (index) => {
+    if (index === travelEntries.length - 1) return; // Already at bottom
+    const updatedEntries = [...travelEntries];
+    [updatedEntries[index], updatedEntries[index + 1]] = [updatedEntries[index + 1], updatedEntries[index]];
+    setTravelEntries(updatedEntries);
+    await saveTravelEntries(updatedEntries);
+  };
+
+  // Calendar Helper Functions
+  const getQuarterMonths = () => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentQuarter = Math.floor(currentMonth / 3);
+    const quarterStartMonth = currentQuarter * 3;
+    
+    return [
+      new Date(now.getFullYear(), quarterStartMonth, 1),
+      new Date(now.getFullYear(), quarterStartMonth + 1, 1),
+      new Date(now.getFullYear(), quarterStartMonth + 2, 1)
+    ];
+  };
+
+  const getAllQuarters = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    return [
+      {
+        name: 'Q1',
+        months: [
+          new Date(year, 0, 1),  // January
+          new Date(year, 1, 1),  // February
+          new Date(year, 2, 1)   // March
+        ]
+      },
+      {
+        name: 'Q2',
+        months: [
+          new Date(year, 3, 1),  // April
+          new Date(year, 4, 1),  // May
+          new Date(year, 5, 1)   // June
+        ]
+      },
+      {
+        name: 'Q3',
+        months: [
+          new Date(year, 6, 1),  // July
+          new Date(year, 7, 1),  // August
+          new Date(year, 8, 1)   // September
+        ]
+      },
+      {
+        name: 'Q4',
+        months: [
+          new Date(year, 9, 1),  // October
+          new Date(year, 10, 1), // November
+          new Date(year, 11, 1)  // December
+        ]
+      }
+    ];
+  };
+
+  const getDaysInMonth = (date) => {
+    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+  };
+
+  const getFirstDayOfMonth = (date) => {
+    return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+  };
+
+  const isTravelDay = (date) => {
+    const dateStr = date.toISOString().split('T')[0];
+    return travelEntries.some(entry => {
+      const start = new Date(entry.startDate);
+      const end = new Date(entry.endDate);
+      const current = new Date(dateStr);
+      return current >= start && current <= end;
+    });
+  };
+
+  const isToday = (date) => {
+    const today = new Date();
+    return date.getDate() === today.getDate() &&
+           date.getMonth() === today.getMonth() &&
+           date.getFullYear() === today.getFullYear();
+  };
+
+  const isHoliday = (date) => {
+    const month = date.getMonth();
+    const day = date.getDate();
+    const year = date.getFullYear();
+    
+    // Major US Holidays
+    const holidays = [
+      { month: 0, day: 1 },   // New Year's Day - Jan 1
+      { month: 1, day: 14 },  // Valentine's Day - Feb 14
+      { month: 1, day: 17 },  // Presidents Day 2026 - 3rd Monday of Feb
+      { month: 2, day: 17 },  // St. Patrick's Day - Mar 17
+      { month: 4, day: 12 },  // Mother's Day 2026 - 2nd Sunday of May
+      { month: 4, day: 25 },  // Memorial Day 2026 - Last Monday of May
+      { month: 5, day: 21 },  // Father's Day 2026 - 3rd Sunday of June
+      { month: 6, day: 4 },   // Independence Day - Jul 4
+      { month: 8, day: 7 },   // Labor Day 2026 - 1st Monday of Sep
+      { month: 9, day: 12 },  // Columbus Day 2026 - 2nd Monday of Oct
+      { month: 9, day: 31 },  // Halloween - Oct 31
+      { month: 10, day: 11 }, // Veterans Day - Nov 11
+      { month: 10, day: 26 }, // Thanksgiving 2026 - 4th Thursday of Nov
+      { month: 11, day: 25 }, // Christmas - Dec 25
+      { month: 11, day: 31 }  // New Year's Eve - Dec 31
+    ];
+    
+    return holidays.some(holiday => holiday.month === month && holiday.day === day);
+  };
+
+  // Get upcoming travel notifications
+  const getUpcomingTravel = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    return travelEntries.filter(entry => {
+      const startDate = new Date(entry.startDate);
+      startDate.setHours(0, 0, 0, 0);
+      const daysUntil = Math.ceil((startDate - today) / (1000 * 60 * 60 * 24));
+      return daysUntil >= 0 && daysUntil <= 7; // Next 7 days
+    }).map(entry => {
+      const startDate = new Date(entry.startDate);
+      startDate.setHours(0, 0, 0, 0);
+      const daysUntil = Math.ceil((startDate - today) / (1000 * 60 * 60 * 24));
+      return { ...entry, daysUntil };
+    });
+  };
+
+  // Dark mode toggle
+  const toggleDarkMode = () => {
+    const newMode = !darkMode;
+    setDarkMode(newMode);
+    localStorage.setItem('darkMode', newMode.toString());
+  };
+
+  const generateRecap = async () => {
+    if (tasks.length === 0) {
+      alert('No tasks to generate recap from. Add some tasks first!');
+      return;
+    }
+
+    setIsGenerating(true);
+    setShowRecapButtons(false);
+
+    try {
+      const prompt = `You are helping format a daily recap for Dr. Koch. Here are today's tasks organized by category. Please format them into a professional daily recap email following this exact structure:
+
+Hello Dr. Koch, here is your DAILY RECAP – ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+
+🏢 OFFICE-RELATED ITEMS
+[Group tasks by category (Action Required, Review, No Action Needed)]
+
+💰 FINANCE-RELATED ITEMS
+[Group tasks by category]
+
+🏡 PERSONAL (NOT BUSINESS) ITEMS
+[Group tasks by category]
+
+🏗️ REAL ESTATE ITEMS
+[Group tasks by category if any]
+
+📋 OTHER
+[Any remaining items]
+
+Here are the tasks:
+${JSON.stringify(tasks, null, 2)}
+
+Important formatting rules:
+- Use bullet points (•) for each task
+- Keep the exact wording from the task descriptions
+- Group by "Action Required", "Review", and "No Action Needed" within each section
+- Only include sections that have tasks
+- Maintain the professional, concise tone
+- Use the EXACT emojis shown above for each section header
+- Don't add any extra commentary or suggestions`;
+
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1000,
+          messages: [
+            { role: 'user', content: prompt }
+          ]
+        })
+      });
+
+      const data = await response.json();
+      const recap = data.content[0].text;
+      setRecapText(recap);
+      setShowRecapButtons(true);
+      setIsEditingRecap(true); // Auto-enable editing mode
+    } catch (error) {
+      console.error('Error generating recap:', error);
+      setRecapText('Error generating recap. Please try again.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const copyRecap = () => {
+    navigator.clipboard.writeText(recapText).then(() => {
+      alert('Copied to clipboard!');
+    });
+  };
+
+  const emailToDrKoch = () => {
+    const subject = encodeURIComponent('DAILY RECAP – ' + new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }));
+    const body = encodeURIComponent(recapText);
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=&su=${subject}&body=${body}`;
+    window.open(gmailUrl, '_blank');
+  };
+
+  const filteredTasks = currentFilter === 'all' 
+    ? tasks 
+    : tasks.filter(t => t.category === currentFilter);
+
+  // Group tasks by section
+  const groupTasksBySection = (taskList) => {
+    const sections = {
+      "This Week's Projects": [],
+      "OFFICE RELATED": [],
+      "FINANCE RELATED": [],
+      "PERSONAL RELATED": [],
+      "REAL ESTATE": [],
+      "HOLD": [],
+      "OTHER": []
+    };
+
+    taskList.forEach(task => {
+      // Skip section headers
+      if (task.category === 'Section Header') return;
+
+      // Group by tag primarily
+      if (task.tag === 'Finance') {
+        sections["FINANCE RELATED"].push(task);
+      } else if (task.tag === 'Office') {
+        sections["OFFICE RELATED"].push(task);
+      } else if (task.tag === 'Personal') {
+        sections["PERSONAL RELATED"].push(task);
+      } else if (task.tag === 'Real Estate') {
+        sections["REAL ESTATE"].push(task);
+      } else if (task.category === 'Ongoing') {
+        sections["HOLD"].push(task);
+      } else {
+        sections["OTHER"].push(task);
+      }
+    });
+
+    // Remove empty sections
+    return Object.entries(sections).filter(([_, tasks]) => tasks.length > 0);
+  };
+
+  // Get section header color
+  const getSectionColor = (sectionName) => {
+    if (sectionName.includes('FINANCE')) {
+      return 'bg-gradient-to-r from-purple-600 to-purple-500';
+    } else if (sectionName.includes('OFFICE')) {
+      return 'bg-gradient-to-r from-blue-600 to-blue-500';
+    } else if (sectionName.includes('PERSONAL')) {
+      return 'bg-gradient-to-r from-orange-600 to-orange-500';
+    } else if (sectionName.includes('REAL ESTATE')) {
+      return 'bg-gradient-to-r from-green-600 to-green-500';
+    } else {
+      return 'bg-gradient-to-r from-gray-600 to-gray-500';
+    }
+  };
+
+  // Make links in text clickable
+  const renderDescriptionWithLinks = (text) => {
+    // Match URLs
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = text.split(urlRegex);
+    
+    return parts.map((part, index) => {
+      if (part.match(urlRegex)) {
+        return (
+          <a 
+            key={index}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:text-blue-800 underline font-medium"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {part.length > 50 ? part.substring(0, 50) + '...' : part}
+          </a>
+        );
+      }
+      return part;
+    });
+  };
+
+  const groupedTasks = groupTasksBySection(filteredTasks);
+
+  // Daily inspirational quotes - rotates based on day of year
+  const inspirationalQuotes = [
+    { quote: "Assume the feeling of your wish fulfilled.", author: "Neville Goddard" },
+    { quote: "The Universe does not hear what you say, it feels what you feel.", author: "Esther Hicks" },
+    { quote: "What you think, you create. What you feel, you attract. What you imagine, you become.", author: "Rhonda Byrne" },
+    { quote: "See yourself living in abundance and you will attract it.", author: "Bob Proctor" },
+    { quote: "You will be a failure, until you impress the subconscious with the conviction you are a success.", author: "Florence Scovel Shinn" },
+    { quote: "Change the way you look at things and the things you look at change.", author: "Wayne Dyer" },
+    { quote: "The moment you change your perception is the moment you rewrite the chemistry of your body.", author: "Gregg Braden" },
+    { quote: "Your beliefs become your biology.", author: "Bruce Lipton" },
+    { quote: "The path to success is to take massive, determined action.", author: "Tony Robbins" },
+    { quote: "When you become uncomfortable in your present state, you become inspired to create something new.", author: "Joe Dispenza" },
+    { quote: "Dare to assume that all things are possible to you.", author: "Neville Goddard" },
+    { quote: "The basis of your life is absolute freedom, the goal is joy.", author: "Esther Hicks" },
+    { quote: "Gratitude is the great multiplier.", author: "Rhonda Byrne" },
+    { quote: "Thoughts become things. If you see it in your mind, you will hold it in your hand.", author: "Bob Proctor" },
+    { quote: "Intuition is a spiritual faculty and does not explain, but simply points the way.", author: "Florence Scovel Shinn" },
+    { quote: "You are not stuck where you are unless you decide to be.", author: "Wayne Dyer" },
+    { quote: "Feeling is the prayer.", author: "Gregg Braden" },
+    { quote: "We are not victims of our genes, but masters of our fate.", author: "Bruce Lipton" },
+    { quote: "Where focus goes, energy flows.", author: "Tony Robbins" },
+    { quote: "The moment you start feeling abundant and wealthy is the moment abundance finds you.", author: "Joe Dispenza" }
+  ];
+
+  // Get quote based on day of year so it changes daily
+  const getDailyQuote = () => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), 0, 0);
+    const diff = now - start;
+    const oneDay = 1000 * 60 * 60 * 24;
+    const dayOfYear = Math.floor(diff / oneDay);
+    return inspirationalQuotes[dayOfYear % inspirationalQuotes.length];
+  };
+
+  const dailyQuote = getDailyQuote();
+
+  // Dark mode text color helpers
+  const textClass = (light, dark = null) => darkMode ? (dark || 'text-gray-300') : light;
+  const bgClass = (light, dark = null) => darkMode ? (dark || 'bg-gray-700') : light;
+  const borderClass = (light, dark = null) => darkMode ? (dark || 'border-gray-600') : light;
+
+  const getBadgeClass = (type, value) => {
+    const classes = {
+      category: {
+        'Review': 'bg-pink-100 text-pink-800',
+        'Sign': 'bg-yellow-100 text-yellow-800',
+        'Meet With': 'bg-cyan-100 text-cyan-800',
+        'Approve': 'bg-green-100 text-green-800',
+        'Respond': 'bg-blue-100 text-blue-800',
+        'No Action Needed': 'bg-gray-100 text-gray-800',
+        'PAY': 'bg-lime-100 text-lime-800',
+        'Hold': 'bg-slate-700 text-white',
+        'Errands': 'bg-amber-700 text-white'
+      },
+      tag: {
+        'Office': 'bg-blue-100 text-blue-700',
+        'Finance': 'bg-green-100 text-green-700',
+        'Personal': 'bg-purple-100 text-purple-700',
+        'Real Estate': 'bg-indigo-100 text-indigo-700',
+        'Other': 'bg-gray-100 text-gray-700'
+      }
+    };
+    return classes[type][value] || 'bg-gray-100 text-gray-700';
+  };
+
+  return (
+    <div className={`min-h-screen p-4 transition-colors duration-300 ${
+      darkMode 
+        ? 'bg-gradient-to-br from-gray-900 to-gray-800' 
+        : 'bg-gradient-to-br from-indigo-600 to-purple-700'
+    }`}>
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className={`rounded-2xl shadow-2xl p-6 mb-6 transition-colors ${
+          darkMode ? 'bg-gray-800 text-white' : 'bg-white'
+        }`}>
+          <div className="flex justify-between items-center flex-wrap gap-4">
+            <div>
+              <h1 className={`text-3xl font-serif font-bold mb-2 ${
+                darkMode ? 'text-white' : 'text-indigo-900'
+              }`}>
+                Dr. K Workflow
+              </h1>
+              <p className={darkMode ? 'text-gray-300' : 'text-gray-600'}>
+                {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+              </p>
+              <div className={`mt-3 p-3 rounded-lg border-l-4 ${
+                darkMode 
+                  ? 'bg-gray-700 border-purple-400' 
+                  : 'bg-gradient-to-r from-purple-50 to-indigo-50 border-purple-500'
+              }`}>
+                <p className={`text-sm italic ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  "{dailyQuote.quote}"
+                </p>
+                <p className={`text-xs font-semibold mt-1 ${
+                  darkMode ? 'text-purple-300' : 'text-purple-700'
+                }`}>
+                  — {dailyQuote.author}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={toggleDarkMode}
+                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition flex items-center gap-2"
+                title={darkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+              >
+                {darkMode ? '☀️' : '🌙'} {darkMode ? 'Light' : 'Dark'}
+              </button>
+              <button 
+                onClick={() => setTasks([])}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+              >
+                🔄 New Day
+              </button>
+            </div>
+          </div>
+
+          {/* Section Tabs */}
+          <div className="flex gap-2 mt-6 border-b-2">
+            <button
+              onClick={() => setActiveSection('instructions')}
+              className={`px-6 py-3 font-semibold transition relative ${
+                activeSection === 'instructions'
+                  ? 'text-indigo-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              📖 Instructions
+              {activeSection === 'instructions' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600"></div>
+              )}
+            </button>
+            <button
+              onClick={() => setActiveSection('tasks')}
+              className={`px-6 py-3 font-semibold transition relative ${
+                activeSection === 'tasks'
+                  ? 'text-indigo-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              📋 Today's Tasks
+              {activeSection === 'tasks' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600"></div>
+              )}
+            </button>
+            <button
+              onClick={() => setActiveSection('recap')}
+              className={`px-6 py-3 font-semibold transition relative ${
+                activeSection === 'recap'
+                  ? 'text-indigo-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              ✨ Daily Recap
+              {activeSection === 'recap' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600"></div>
+              )}
+            </button>
+            <button
+              onClick={() => setActiveSection('travel')}
+              className={`px-6 py-3 font-semibold transition relative ${
+                activeSection === 'travel'
+                  ? 'text-indigo-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              ✈️ Travel
+              {activeSection === 'travel' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600"></div>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Instructions Section */}
+        {activeSection === 'instructions' && (
+          <div className={`rounded-2xl shadow-2xl p-8 transition-colors ${
+            darkMode ? 'bg-gray-800 text-white' : 'bg-white'
+          }`}>
+            <h2 className={`text-3xl font-serif font-bold mb-6 ${
+              darkMode ? 'text-white' : 'text-indigo-900'
+            }`}>
+              How to Use Dr. K Workflow
+            </h2>
+
+            <div className="space-y-6">
+              {/* Overview */}
+              <div className={`border-l-4 border-indigo-600 p-6 rounded-r-lg ${
+                darkMode ? 'bg-indigo-900' : 'bg-indigo-50'
+              }`}>
+                <h3 className={`text-lg font-bold mb-2 ${
+                  darkMode ? 'text-indigo-300' : 'text-indigo-900'
+                }`}>👥 Collaboration Tool</h3>
+                <p className={`leading-relaxed ${
+                  darkMode ? 'text-gray-300' : 'text-gray-700'
+                }`}>
+                  This tracker allows <strong>both you and Dr. Koch</strong> to view and update tasks in real-time. 
+                  All changes are saved automatically and synced between both of you.
+                </p>
+              </div>
+
+              {/* For Assistant */}
+              <div>
+                <h3 className={`text-xl font-bold mb-4 ${
+                  darkMode ? "text-white" : "text-gray-800"
+                }`}>📝 Athena Workflow:</h3>
+                <div className="space-y-3 ml-4">
+                  <div className="flex gap-3">
+                    <span className="text-2xl">1️⃣</span>
+                    <div>
+                      <p className={`font-semibold ${
+                      darkMode ? "text-gray-200" : "text-gray-800"
+                    }`}>Add tasks throughout the day</p>
+                      <p className={`text-sm ${
+                      darkMode ? "text-gray-400" : "text-gray-600"
+                    }`}>Go to "Today's Tasks" tab, fill out the form, and click "Add Task"</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <span className="text-2xl">2️⃣</span>
+                    <div>
+                      <p className={`font-semibold ${
+                      darkMode ? "text-gray-200" : "text-gray-800"
+                    }`}>Organize by category and tag</p>
+                      <p className={`text-sm ${
+                      darkMode ? "text-gray-400" : "text-gray-600"
+                    }`}>Categories: Respond, Sign, Hold, Review, No Action Needed</p>
+                      <p className={`text-sm ${
+                      darkMode ? "text-gray-400" : "text-gray-600"
+                    }`}>Tags: Office, Finance, Personal, Real Estate, Other</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <span className="text-2xl">3️⃣</span>
+                    <div>
+                      <p className={`font-semibold ${
+                      darkMode ? "text-gray-200" : "text-gray-800"
+                    }`}>Mark urgent items with yellow highlight</p>
+                      <p className={`text-sm ${
+                      darkMode ? "text-gray-400" : "text-gray-600"
+                    }`}>Check "Mark as Urgent" for time-sensitive tasks</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <span className="text-2xl">4️⃣</span>
+                    <div>
+                      <p className={`font-semibold ${
+                      darkMode ? "text-gray-200" : "text-gray-800"
+                    }`}>Create the daily recap at end of day</p>
+                      <p className={`text-sm ${
+                      darkMode ? "text-gray-400" : "text-gray-600"
+                    }`}>Go to "Daily Recap" tab → Click "Create Daily Recap" → Email to Dr. Koch</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* For Dr. Koch */}
+              <div>
+                <h3 className={`text-xl font-bold mb-4 ${
+                  darkMode ? "text-white" : "text-gray-800"
+                }`}>👨‍⚕️ For Dr. Koch:</h3>
+                <div className="space-y-3 ml-4">
+                  <div className="flex gap-3">
+                    <span className="text-2xl">✓</span>
+                    <div>
+                      <p className={`font-semibold ${
+                      darkMode ? "text-gray-200" : "text-gray-800"
+                    }`}>Check off completed tasks</p>
+                      <p className={`text-sm ${
+                      darkMode ? "text-gray-400" : "text-gray-600"
+                    }`}>Click the circle (○) button to mark tasks complete</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <span className="text-2xl">💬</span>
+                    <div>
+                      <p className={`font-semibold ${
+                      darkMode ? "text-gray-200" : "text-gray-800"
+                    }`}>Leave instructions or notes</p>
+                      <p className={`text-sm ${
+                      darkMode ? "text-gray-400" : "text-gray-600"
+                    }`}>Click the speech bubble (💬) button on any task to add comments</p>
+                      <p className="text-sm text-gray-600 mt-1"><em>Example: "Done - emailed confirmation" or "Wait until Friday to follow up"</em></p>
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <span className="text-2xl">📱</span>
+                    <div>
+                      <p className={`font-semibold ${
+                      darkMode ? "text-gray-200" : "text-gray-800"
+                    }`}>Access from any device</p>
+                      <p className={`text-sm ${
+                      darkMode ? "text-gray-400" : "text-gray-600"
+                    }`}>Bookmark this page on your phone, tablet, or computer</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Button Icons Guide */}
+              <div className={`rounded-lg p-6 ${
+                darkMode ? "bg-gray-700" : "bg-gray-50"
+              }`}>
+                <h3 className="text-lg font-bold text-gray-800 mb-4">🔘 Button Guide:</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">⚡</span>
+                    <span className={`text-sm ${
+                    darkMode ? "text-gray-300" : "text-gray-700"
+                  }`}>Toggle urgent (yellow highlight)</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">💬</span>
+                    <span className={`text-sm ${
+                    darkMode ? "text-gray-300" : "text-gray-700"
+                  }`}>Add notes/instructions</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">○</span>
+                    <span className={`text-sm ${
+                    darkMode ? "text-gray-300" : "text-gray-700"
+                  }`}>Mark incomplete</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">✓</span>
+                    <span className={`text-sm ${
+                    darkMode ? "text-gray-300" : "text-gray-700"
+                  }`}>Mark complete</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">×</span>
+                    <span className={`text-sm ${
+                    darkMode ? "text-gray-300" : "text-gray-700"
+                  }`}>Delete task</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="px-3 py-1 bg-yellow-100 rounded text-xs">URGENT</div>
+                    <span className={`text-sm ${
+                    darkMode ? "text-gray-300" : "text-gray-700"
+                  }`}>High priority</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Important Notes */}
+              <div className={`border-l-4 border-amber-500 p-6 rounded-r-lg ${
+                darkMode ? "bg-amber-900" : "bg-amber-50"
+              }`}>
+                <h3 className={`text-lg font-bold mb-2 ${
+                  darkMode ? "text-amber-300" : "text-amber-900"
+                }`}>⚠️ Important:</h3>
+                <ul className="space-y-2 text-gray-700">
+                  <li className="flex gap-2">
+                    <span>•</span>
+                    <span>All changes save automatically - no "save" button needed</span>
+                  </li>
+                  <li className="flex gap-2">
+                    <span>•</span>
+                    <span>Both users should bookmark the exact same URL to stay synced</span>
+                  </li>
+                  <li className="flex gap-2">
+                    <span>•</span>
+                    <span>Refresh the page to see updates made by the other person</span>
+                  </li>
+                  <li className="flex gap-2">
+                    <span>•</span>
+                    <span>Use "New Day" button at the top to clear tasks and start fresh</span>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Get Started Button */}
+              <div className="text-center pt-4">
+                <button
+                  onClick={() => setActiveSection('tasks')}
+                  className="px-8 py-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-semibold text-lg shadow-lg"
+                >
+                  🚀 Get Started - Go to Tasks
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tasks Section */}
+        {activeSection === 'tasks' && (
+          <div className={`rounded-2xl shadow-2xl p-6 transition-colors ${
+            darkMode ? 'bg-gray-800' : 'bg-white'
+          }`}>
+            <h2 className={`text-2xl font-serif font-bold mb-6 pb-4 border-b-2 ${
+              darkMode ? 'text-white border-gray-600' : 'text-indigo-900 border-gray-200'
+            }`}>
+              Today's Tasks
+            </h2>
+
+            {/* Filter Buttons */}
+            <div className="flex flex-wrap gap-2 mb-4">
+              {['all', 'Review', 'Sign', 'Meet With', 'Approve', 'Respond', 'No Action Needed', 'PAY', 'Hold', 'Errands'].map(filter => (
+                <button
+                  key={filter}
+                  onClick={() => setCurrentFilter(filter)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                    currentFilter === filter 
+                      ? 'bg-indigo-600 text-white' 
+                      : darkMode 
+                        ? 'bg-gray-700 border border-gray-600 text-gray-300 hover:bg-gray-600'
+                        : 'bg-white border hover:bg-gray-50'
+                  }`}
+                >
+                  {filter === 'all' ? 'All' : filter}
+                </button>
+              ))}
+            </div>
+
+            {/* Task List */}
+            <div className="space-y-6 max-h-[600px] overflow-y-auto">
+              {filteredTasks.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <div className="text-5xl mb-4">📋</div>
+                  <p>No tasks yet. Add your first task above!</p>
+                </div>
+              ) : (
+                groupedTasks.map(([sectionName, sectionTasks]) => (
+                  <div key={sectionName} className="mb-6">
+                    {/* Section Header */}
+                    <div className={`${getSectionColor(sectionName)} text-white px-4 py-3 rounded-t-lg font-bold text-sm uppercase tracking-wide shadow-md`}>
+                      {sectionName}
+                    </div>
+                    
+                    {/* Tasks in this section */}
+                    <div className="space-y-3 bg-gray-50 p-4 rounded-b-lg border border-t-0">
+                      {sectionTasks.map(task => (
+                        <div 
+                          key={task.id}
+                          className={`border rounded-xl p-4 transition ${
+                            task.urgent ? 'bg-yellow-50 border-yellow-400' : darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white'
+                          } ${task.completed ? 'opacity-60' : ''}`}
+                        >
+                          <div className="flex justify-between items-start mb-2">
+                            <div className="flex gap-2 flex-wrap">
+                              <span className={`px-3 py-1 rounded-md text-xs font-semibold uppercase ${getBadgeClass('category', task.category)}`}>
+                                {task.category}
+                              </span>
+                              <span className={`px-3 py-1 rounded-md text-xs font-semibold uppercase ${getBadgeClass('tag', task.tag)}`}>
+                                {task.tag}
+                              </span>
+                              {task.carriedOver && (
+                                <span className="px-3 py-1 rounded-md text-xs font-semibold uppercase bg-orange-100 text-orange-800 border border-orange-300">
+                                  📅 Carried Over
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => toggleUrgent(task.id)}
+                                className={`w-7 h-7 rounded-md flex items-center justify-center transition text-xs font-bold ${
+                                  task.urgent 
+                                    ? 'bg-yellow-400 hover:bg-yellow-500 text-yellow-900' 
+                                    : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+                                }`}
+                                title={task.urgent ? "Remove urgent" : "Mark as urgent"}
+                              >
+                                ⚡
+                              </button>
+                              <button
+                                onClick={() => setExpandedNotes({...expandedNotes, [task.id]: !expandedNotes[task.id]})}
+                                className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-md flex items-center justify-center transition text-xs"
+                                title="Add notes/instructions"
+                              >
+                                💬
+                              </button>
+                              <button
+                                onClick={() => toggleComplete(task.id)}
+                                className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-md flex items-center justify-center transition"
+                                title="Mark complete"
+                              >
+                                {task.completed ? '✓' : '○'}
+                              </button>
+                              <button
+                                onClick={() => deleteTask(task.id)}
+                                className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-md flex items-center justify-center transition"
+                                title="Delete task"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          </div>
+                          <p className={`text-sm leading-relaxed mb-2 ${task.completed ? 'line-through' : ''} ${darkMode ? 'text-gray-300' : ''}`}>
+                            {renderDescriptionWithLinks(task.description)}
+                          </p>
+                          
+                          {task.emailLink && (
+                            <a
+                              href={task.emailLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold rounded-lg transition mt-2"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              📧 View Email
+                            </a>
+                          )}
+                          
+                          {/* Attachments */}
+                          {task.attachments && task.attachments.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {task.attachments.map((file, idx) => (
+                                <a
+                                  key={idx}
+                                  href={file.data}
+                                  download={file.name}
+                                  className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs rounded border"
+                                  title={`${file.name} (${(file.size / 1024).toFixed(1)}KB)`}
+                                >
+                                  📎 {file.name.length > 20 ? file.name.substring(0, 20) + '...' : file.name}
+                                </a>
+                              ))}
+                            </div>
+                          )}
+                          
+                          {expandedNotes[task.id] && (
+                            <div className="mt-3 pt-3 border-t">
+                              <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">
+                                📝 Notes / Instructions (Dr. Koch can add comments here)
+                              </label>
+                              <textarea
+                                value={task.notes || ''}
+                                onChange={(e) => updateTaskNotes(task.id, e.target.value)}
+                                placeholder="Add instructions or notes about this task..."
+                                className="w-full px-3 py-2 border rounded-lg text-sm min-h-20 bg-blue-50 border-blue-200 focus:border-blue-400 focus:outline-none"
+                              />
+                            </div>
+                          )}
+                          
+                          {task.notes && !expandedNotes[task.id] && (
+                            <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-900">
+                              <strong>💬 Note:</strong> {task.notes.substring(0, 60)}{task.notes.length > 60 ? '...' : ''}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Real-Time Status Dashboard - Moved to Bottom */}
+            <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-xl p-5 my-6">
+              <h3 className="text-sm font-bold text-indigo-900 uppercase tracking-wide mb-3">
+                📊 Current Status
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="bg-white rounded-lg p-3 text-center shadow-sm">
+                  <div className="text-2xl font-bold text-indigo-600">
+                    {tasks.filter(t => t.category !== 'Section Header').length}
+                  </div>
+                  <div className="text-xs text-gray-600 font-semibold">Total Tasks</div>
+                </div>
+                <div className="bg-white rounded-lg p-3 text-center shadow-sm">
+                  <div className="text-2xl font-bold text-green-600">
+                    {tasks.filter(t => t.completed).length}
+                  </div>
+                  <div className="text-xs text-gray-600 font-semibold">Completed</div>
+                </div>
+                <div className="bg-white rounded-lg p-3 text-center shadow-sm">
+                  <div className="text-2xl font-bold text-yellow-600">
+                    {tasks.filter(t => t.urgent && !t.completed).length}
+                  </div>
+                  <div className="text-xs text-gray-600 font-semibold">⚡ Urgent</div>
+                </div>
+                <div className="bg-white rounded-lg p-3 text-center shadow-sm">
+                  <div className="text-2xl font-bold text-amber-600">
+                    {tasks.filter(t => t.carriedOver && !t.completed).length}
+                  </div>
+                  <div className="text-xs text-gray-600 font-semibold">📅 Carried Over</div>
+                </div>
+              </div>
+              
+              {/* Progress Bar */}
+              <div className="mt-4">
+                <div className="flex justify-between text-xs text-gray-600 mb-1">
+                  <span className="font-semibold">Progress</span>
+                  <span className="font-semibold">
+                    {tasks.filter(t => t.category !== 'Section Header').length > 0 
+                      ? Math.round((tasks.filter(t => t.completed).length / tasks.filter(t => t.category !== 'Section Header').length) * 100)
+                      : 0}%
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                  <div 
+                    className="bg-gradient-to-r from-green-500 to-green-600 h-3 rounded-full transition-all duration-500"
+                    style={{
+                      width: `${tasks.filter(t => t.category !== 'Section Header').length > 0 
+                        ? (tasks.filter(t => t.completed).length / tasks.filter(t => t.category !== 'Section Header').length) * 100
+                        : 0}%`
+                    }}
+                  ></div>
+                </div>
+              </div>
+            </div>
+
+            {/* Manage Tasks Form - At Bottom for Athena */}
+            <div className="mt-8 pt-6 border-t-2 border-gray-200">
+              <h3 className={`text-xl font-serif font-bold mb-4 ${
+                darkMode ? 'text-white' : 'text-indigo-900'
+              }`}>
+                ➕ Manage Tasks (Athena)
+              </h3>
+              
+              <div className="bg-gray-50 rounded-xl p-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">
+                      Category
+                    </label>
+                    <select 
+                      value={formData.category}
+                      onChange={(e) => setFormData({...formData, category: e.target.value})}
+                      className="w-full px-3 py-2 border rounded-lg text-sm"
+                    >
+                      <option>Review</option>
+                      <option>Sign</option>
+                      <option>Meet With</option>
+                      <option>Approve</option>
+                      <option>Respond</option>
+                      <option>No Action Needed</option>
+                      <option>PAY</option>
+                      <option>Hold</option>
+                      <option>Errands</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">
+                      Tag
+                    </label>
+                    <select 
+                      value={formData.tag}
+                      onChange={(e) => setFormData({...formData, tag: e.target.value})}
+                      className="w-full px-3 py-2 border rounded-lg text-sm"
+                    >
+                      <option>Office</option>
+                      <option>Finance</option>
+                      <option>Personal</option>
+                      <option>Real Estate</option>
+                      <option>Other</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="mb-3">
+                  <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">
+                    Task Description
+                  </label>
+                  <textarea 
+                    value={formData.description}
+                    onChange={(e) => setFormData({...formData, description: e.target.value})}
+                    placeholder="Enter task details..."
+                    className="w-full px-3 py-2 border rounded-lg text-sm min-h-20"
+                  />
+                </div>
+
+                <div className="mb-3">
+                  <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">
+                    📧 Email Link (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.emailLink}
+                    onChange={(e) => setFormData({...formData, emailLink: e.target.value})}
+                    placeholder="Paste Gmail link here (https://mail.google.com/...)"
+                    className="w-full px-3 py-2 border rounded-lg text-sm"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">💡 Paste the Gmail link from "Show original" → will appear as "View Email" button</p>
+                </div>
+
+                <div className="flex items-center gap-2 mb-3">
+                  <input 
+                    type="checkbox"
+                    checked={formData.urgent}
+                    onChange={(e) => setFormData({...formData, urgent: e.target.checked})}
+                    className="w-4 h-4"
+                  />
+                  <label className="text-sm">Mark as Urgent (Yellow highlight)</label>
+                </div>
+
+                <div className="mb-3">
+                  <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">
+                    📎 Attachments (Optional)
+                  </label>
+                  <input
+                    type="file"
+                    multiple
+                    onChange={async (e) => {
+                      const files = Array.from(e.target.files || []);
+                      
+                      // Check file sizes
+                      const oversized = files.filter(f => f.size > 3 * 1024 * 1024); // 3MB limit
+                      if (oversized.length > 0) {
+                        alert(`These files are too large (over 3MB): ${oversized.map(f => f.name).join(', ')}\nPlease use smaller files.`);
+                        return;
+                      }
+                      
+                      // Convert files to Base64
+                      const filePromises = files.map(file => {
+                        return new Promise((resolve, reject) => {
+                          const reader = new FileReader();
+                          reader.onload = () => {
+                            resolve({
+                              name: file.name,
+                              size: file.size,
+                              type: file.type,
+                              data: reader.result // Base64 string
+                            });
+                          };
+                          reader.onerror = reject;
+                          reader.readAsDataURL(file);
+                        });
+                      });
+                      
+                      try {
+                        const fileData = await Promise.all(filePromises);
+                        setFormData({...formData, attachments: [...(formData.attachments || []), ...fileData]});
+                      } catch (error) {
+                        alert('Error uploading files. Please try again.');
+                        console.error(error);
+                      }
+                    }}
+                    className="w-full px-3 py-2 border rounded-lg text-sm"
+                  />
+                  {formData.attachments && formData.attachments.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {formData.attachments.map((file, idx) => (
+                        <div key={idx} className="flex items-center gap-2 bg-blue-50 px-3 py-1 rounded-lg text-xs">
+                          <span>📎 {file.name} ({(file.size / 1024).toFixed(1)}KB)</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newAttachments = formData.attachments.filter((_, i) => i !== idx);
+                              setFormData({...formData, attachments: newAttachments});
+                            }}
+                            className="text-red-600 hover:text-red-800 font-bold"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">💡 Upload PDFs, images, or documents (max 3MB per file)</p>
+                  <p className="text-xs text-blue-600 mt-1">☁️ Files are stored permanently and synced with Dr. Koch</p>
+                </div>
+
+                <button 
+                  onClick={addTask}
+                  className="w-full py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition font-medium"
+                >
+                  ➕ Add Task
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Recap Section */}
+        {activeSection === 'recap' && (
+          <div className={`rounded-2xl shadow-2xl p-6 transition-colors ${
+            darkMode ? 'bg-gray-800' : 'bg-white'
+          }`}>
+            <h2 className={`text-2xl font-serif font-bold mb-6 pb-4 border-b-2 ${
+              darkMode ? 'text-white border-gray-600' : 'text-indigo-900 border-gray-200'
+            }`}>
+              Daily Recap
+            </h2>
+
+            <button 
+              onClick={generateRecap}
+              disabled={isGenerating}
+              className="w-full py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium mb-6 disabled:opacity-50"
+            >
+              {isGenerating ? '⏳ Creating Recap...' : '✨ Create and Edit Daily Recap'}
+            </button>
+
+            <div className="bg-gray-50 border rounded-xl p-6 mb-4 min-h-96">
+              {isGenerating ? (
+                <div className="flex flex-col items-center justify-center h-full py-20">
+                  <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+                  <p className="text-gray-600">Creating your daily recap...</p>
+                </div>
+              ) : recapText ? (
+                <div>
+                  <div className="flex justify-between items-center mb-3">
+                    <label className="text-xs font-semibold text-gray-600 uppercase">
+                      Daily Recap {isEditingRecap && '(Editing)'}
+                    </label>
+                    <button
+                      onClick={() => setIsEditingRecap(!isEditingRecap)}
+                      className="text-xs px-3 py-1 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded font-semibold transition"
+                    >
+                      {isEditingRecap ? '✓ Done Editing' : '✏️ Edit'}
+                    </button>
+                  </div>
+                  {isEditingRecap ? (
+                    <textarea
+                      value={recapText}
+                      onChange={(e) => setRecapText(e.target.value)}
+                      className="w-full min-h-96 px-4 py-3 border-2 border-indigo-300 rounded-lg text-sm font-mono leading-relaxed focus:outline-none focus:border-indigo-500"
+                      style={{ whiteSpace: 'pre-wrap' }}
+                    />
+                  ) : (
+                    <pre className="whitespace-pre-wrap text-sm font-sans leading-relaxed">
+                      {recapText}
+                    </pre>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-20 text-gray-500">
+                  <div className="text-6xl mb-4">📝</div>
+                  <p className="text-lg mb-2">Ready to create your daily recap</p>
+                  <p className="text-sm">Click the button above for a formatted summary of today's tasks</p>
+                </div>
+              )}
+            </div>
+
+            {showRecapButtons && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <button 
+                  onClick={copyRecap}
+                  className="py-3 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition font-medium"
+                >
+                  📋 Copy to Clipboard
+                </button>
+                <button 
+                  onClick={emailToDrKoch}
+                  className="py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium"
+                >
+                  📧 Email to Dr. Koch
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Travel Section */}
+        {activeSection === 'travel' && (
+          <div className={`rounded-2xl shadow-2xl p-6 transition-colors ${
+            darkMode ? 'bg-gray-800' : 'bg-white'
+          }`}>
+            <h2 className={`text-2xl font-serif font-bold mb-6 pb-4 border-b-2 ${
+              darkMode ? 'text-white border-gray-600' : 'text-indigo-900 border-gray-200'
+            }`}>
+              ✈️ Travel Planning
+            </h2>
+
+            {/* Upcoming Travel Notifications */}
+            {getUpcomingTravel().length > 0 && (
+              <div className="mb-6 p-4 bg-gradient-to-r from-cyan-50 to-blue-50 border-l-4 border-cyan-500 rounded-r-lg">
+                <h3 className="font-bold text-cyan-900 mb-2 flex items-center gap-2">
+                  🔔 Upcoming Travel
+                </h3>
+                <div className="space-y-2">
+                  {getUpcomingTravel().map(trip => (
+                    <div key={trip.id} className="text-sm text-cyan-800">
+                      <strong>{trip.description}</strong> - {trip.daysUntil === 0 ? 'Today!' : trip.daysUntil === 1 ? 'Tomorrow' : `in ${trip.daysUntil} days`}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Search and Filter */}
+            <div className="mb-6 flex flex-col md:flex-row gap-3">
+              <div className="flex-1">
+                <input
+                  type="text"
+                  placeholder="🔍 Search travel entries..."
+                  value={travelSearchQuery}
+                  onChange={(e) => setTravelSearchQuery(e.target.value)}
+                  className={`w-full px-4 py-2 rounded-lg border ${
+                    darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
+                  }`}
+                />
+              </div>
+              <div className="flex gap-2">
+                {['all', ...travelTags].map(tag => (
+                  <button
+                    key={tag}
+                    onClick={() => setTravelTagFilter(tag)}
+                    className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
+                      travelTagFilter === tag
+                        ? 'bg-cyan-500 text-white'
+                        : darkMode
+                        ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {tag === 'all' ? 'All' : tag}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Travel Entries Table */}
+            <div className="overflow-x-auto mb-6">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="bg-gradient-to-r from-blue-600 to-blue-500 text-white">
+                    <th className="px-4 py-3 text-left text-sm font-semibold">Type</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold">Description / Event</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold">Start Date</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold">End Date</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold">Destination</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold">Confirmation #</th>
+                    <th className="px-4 py-3 text-center text-sm font-semibold">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    // Filter and search logic
+                    let filteredEntries = travelEntries;
+                    
+                    // Apply tag filter
+                    if (travelTagFilter !== 'all') {
+                      filteredEntries = filteredEntries.filter(entry => 
+                        entry.tags && entry.tags.includes(travelTagFilter)
+                      );
+                    }
+                    
+                    // Apply search query
+                    if (travelSearchQuery.trim()) {
+                      const query = travelSearchQuery.toLowerCase();
+                      filteredEntries = filteredEntries.filter(entry =>
+                        entry.description.toLowerCase().includes(query) ||
+                        entry.location.toLowerCase().includes(query) ||
+                        entry.confirmation.toLowerCase().includes(query)
+                      );
+                    }
+                    
+                    return filteredEntries.length === 0 ? (
+                    <tr>
+                      <td colSpan="7" className="px-4 py-12 text-center text-gray-500">
+                        <div className="text-4xl mb-3">✈️</div>
+                        <p>{travelSearchQuery || travelTagFilter !== 'all' ? 'No matching travel entries found.' : 'No travel entries yet. Add one below!'}</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredEntries.map((entry, index) => {
+                      const isUpcoming = new Date(entry.startDate) >= new Date();
+                      const typeIcons = {
+                        'Flight': '✈️',
+                        'Hotel': '🏨',
+                        'Car': '🚗',
+                        'Event': '📅',
+                        'Conference': '🎤',
+                        'Course': '📚'
+                      };
+                      const typeColors = {
+                        'Flight': 'bg-blue-100 text-blue-800',
+                        'Hotel': 'bg-purple-100 text-purple-800',
+                        'Car': 'bg-yellow-100 text-yellow-800',
+                        'Event': 'bg-pink-100 text-pink-800',
+                        'Conference': 'bg-green-100 text-green-800',
+                        'Course': 'bg-green-100 text-green-800'
+                      };
+
+                      return (
+                        <tr 
+                          key={entry.id} 
+                          className={`border-b hover:bg-gray-50 ${isUpcoming ? 'bg-yellow-50' : ''}`}
+                        >
+                          <td className="px-4 py-3 text-sm">
+                            {(() => {
+                              // Use first tag if available, otherwise use type
+                              const displayType = entry.tags && entry.tags.length > 0 ? entry.tags[0] : entry.type;
+                              const icon = typeIcons[displayType] || '📋';
+                              const color = typeColors[displayType] || 'bg-gray-100 text-gray-800';
+                              
+                              return (
+                                <span className={`px-2 py-1 rounded text-xs font-semibold ${color}`}>
+                                  {icon} {displayType}
+                                </span>
+                              );
+                            })()}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            {entry.url ? (
+                              <a 
+                                href={entry.url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800 hover:underline font-semibold"
+                              >
+                                {entry.description} 🔗
+                              </a>
+                            ) : (
+                              entry.description
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-sm">{entry.startDate}</td>
+                          <td className="px-4 py-3 text-sm">{entry.endDate}</td>
+                          <td className="px-4 py-3 text-sm">{entry.location}</td>
+                          <td className="px-4 py-3 text-sm font-mono">{entry.confirmation}</td>
+                          <td className="px-4 py-3 text-center">
+                            <div className="flex gap-2 justify-center items-center">
+                              <div className="flex flex-col gap-1">
+                                <button 
+                                  onClick={() => moveTravelUp(index)}
+                                  disabled={index === 0}
+                                  className={`text-xs ${index === 0 ? 'text-gray-300 cursor-not-allowed' : 'text-blue-600 hover:text-blue-800'}`}
+                                  title="Move up"
+                                >
+                                  ▲
+                                </button>
+                                <button 
+                                  onClick={() => moveTravelDown(index)}
+                                  disabled={index === travelEntries.length - 1}
+                                  className={`text-xs ${index === travelEntries.length - 1 ? 'text-gray-300 cursor-not-allowed' : 'text-blue-600 hover:text-blue-800'}`}
+                                  title="Move down"
+                                >
+                                  ▼
+                                </button>
+                              </div>
+                              <button 
+                                onClick={() => startEditTravel(entry)}
+                                className="text-blue-600 hover:text-blue-800 text-sm font-semibold"
+                                title="Edit"
+                              >
+                                ✏️
+                              </button>
+                              <button 
+                                onClick={() => deleteTravelEntry(entry.id)}
+                                className="text-red-600 hover:text-red-800 text-sm font-semibold"
+                                title="Delete"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  );
+                  })()}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-4 text-sm text-gray-600 mb-6">
+              <p className="font-semibold">💡 Travel entries can be reordered using ▲▼ arrows</p>
+              <p className="text-xs mt-1">Yellow highlighted rows = Current/upcoming trips</p>
+              <p className="text-xs mt-1">Use arrows to arrange entries chronologically or by preference</p>
+            </div>
+
+            {/* Quarterly Calendar View - Compact - All Year */}
+            <div className="mb-8 pb-6 border-b-2 border-gray-200">
+              <h3 className={`text-lg font-bold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                📅 2026 Calendar
+              </h3>
+              
+              {getAllQuarters().map((quarter, qIdx) => (
+                <div key={qIdx} className="mb-6">
+                  <h4 className={`text-sm font-semibold mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    {quarter.name} 2026
+                  </h4>
+                  <div className="grid grid-cols-3 gap-3">
+                    {quarter.months.map((monthDate, idx) => {
+                      const monthName = monthDate.toLocaleDateString('en-US', { month: 'short' });
+                      const year = monthDate.getFullYear();
+                      const daysInMonth = getDaysInMonth(monthDate);
+                      const firstDay = getFirstDayOfMonth(monthDate);
+                      const days = [];
+
+                      // Add empty cells for days before month starts
+                      for (let i = 0; i < firstDay; i++) {
+                        days.push(<div key={`empty-${i}`} className="h-6"></div>);
+                      }
+
+                      // Add all days of the month
+                      for (let day = 1; day <= daysInMonth; day++) {
+                        const date = new Date(monthDate.getFullYear(), monthDate.getMonth(), day);
+                        const isTravelDate = isTravelDay(date);
+                        const isTodayDate = isToday(date);
+                        const isHolidayDate = isHoliday(date);
+
+                        days.push(
+                          <div
+                            key={day}
+                            className={`h-6 flex items-center justify-center text-xs rounded ${
+                              isTodayDate
+                                ? 'bg-gray-400 text-white font-bold ring-1 ring-gray-600'
+                                : isTravelDate
+                                ? 'bg-cyan-400 text-white font-semibold'
+                                : isHolidayDate
+                                ? 'bg-purple-300 text-purple-900 font-semibold'
+                                : darkMode
+                                ? 'text-gray-500'
+                                : 'text-gray-600'
+                            }`}
+                            title={
+                              isTodayDate ? 'Today' : 
+                              isTravelDate ? 'Travel day' : 
+                              isHolidayDate ? 'Holiday' : ''
+                            }
+                          >
+                            {day}
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div key={idx} className={`rounded-lg p-2 ${darkMode ? 'bg-gray-700' : 'bg-blue-50'}`}>
+                          <h4 className={`font-bold text-center mb-2 text-sm ${darkMode ? 'text-white' : 'text-blue-900'}`}>
+                            {monthName} '{year.toString().slice(-2)}
+                          </h4>
+                          <div className="grid grid-cols-7 gap-0.5 mb-1">
+                            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
+                              <div key={i} className={`text-xs text-center font-semibold ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                {day}
+                              </div>
+                            ))}
+                          </div>
+                          <div className="grid grid-cols-7 gap-0.5">
+                            {days}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+              
+              <div className="flex gap-4 mt-3 text-xs justify-center">
+                <div className="flex items-center gap-1">
+                  <div className="w-4 h-4 bg-gray-400 rounded"></div>
+                  <span className={darkMode ? 'text-gray-300' : 'text-gray-700'}>Today</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-4 h-4 bg-cyan-400 rounded"></div>
+                  <span className={darkMode ? 'text-gray-300' : 'text-gray-700'}>Travel Days</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-4 h-4 bg-purple-300 rounded"></div>
+                  <span className={darkMode ? 'text-gray-300' : 'text-gray-700'}>Holidays</span>
+                </div>
+              </div>
+
+              {/* Holiday List - Compact */}
+              <div className={`mt-4 p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-purple-50'}`}>
+                <h5 className={`text-xs font-bold mb-2 ${darkMode ? 'text-purple-300' : 'text-purple-900'}`}>
+                  🎊 2026 US Holidays
+                </h5>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1 text-xs">
+                  <div className={darkMode ? 'text-gray-300' : 'text-gray-700'}>Jan 1 - New Year's Day</div>
+                  <div className={darkMode ? 'text-gray-300' : 'text-gray-700'}>Feb 14 - Valentine's Day</div>
+                  <div className={darkMode ? 'text-gray-300' : 'text-gray-700'}>Feb 17 - Presidents Day</div>
+                  <div className={darkMode ? 'text-gray-300' : 'text-gray-700'}>Mar 17 - St. Patrick's Day</div>
+                  <div className={darkMode ? 'text-gray-300' : 'text-gray-700'}>May 12 - Mother's Day</div>
+                  <div className={darkMode ? 'text-gray-300' : 'text-gray-700'}>May 25 - Memorial Day</div>
+                  <div className={darkMode ? 'text-gray-300' : 'text-gray-700'}>Jun 21 - Father's Day</div>
+                  <div className={darkMode ? 'text-gray-300' : 'text-gray-700'}>Jul 4 - Independence Day</div>
+                  <div className={darkMode ? 'text-gray-300' : 'text-gray-700'}>Sep 7 - Labor Day</div>
+                  <div className={darkMode ? 'text-gray-300' : 'text-gray-700'}>Oct 12 - Columbus Day</div>
+                  <div className={darkMode ? 'text-gray-300' : 'text-gray-700'}>Oct 31 - Halloween</div>
+                  <div className={darkMode ? 'text-gray-300' : 'text-gray-700'}>Nov 11 - Veterans Day</div>
+                  <div className={darkMode ? 'text-gray-300' : 'text-gray-700'}>Nov 26 - Thanksgiving</div>
+                  <div className={darkMode ? 'text-gray-300' : 'text-gray-700'}>Dec 25 - Christmas</div>
+                  <div className={darkMode ? 'text-gray-300' : 'text-gray-700'}>Dec 31 - New Year's Eve</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Add Travel Entry Form - At Bottom for Athena */}
+            <div className="mt-8 pt-6 border-t-2 border-gray-200">
+              <h3 className={`text-xl font-serif font-bold mb-4 ${
+                darkMode ? 'text-white' : 'text-indigo-900'
+              }`}>
+                {editingTravelId ? '✏️ Edit Travel Entry' : '➕ Add Travel Entry (Athena)'}
+              </h3>
+              
+              <div className="bg-blue-50 rounded-xl p-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">
+                      🏷️ Tags (Select one or more)
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {travelTags.map(tag => {
+                        const tagEmojis = {
+                          'Flight': '✈️',
+                          'Hotel': '🏨',
+                          'Car': '🚗',
+                          'Event': '📅',
+                          'Conference': '🎤',
+                          'Course': '📚'
+                        };
+                        
+                        return (
+                          <button
+                            key={tag}
+                            type="button"
+                            onClick={() => {
+                              const newTags = travelForm.tags.includes(tag)
+                                ? travelForm.tags.filter(t => t !== tag)
+                                : [...travelForm.tags, tag];
+                              setTravelForm({...travelForm, tags: newTags});
+                            }}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition ${
+                              travelForm.tags.includes(tag)
+                                ? 'bg-cyan-500 text-white'
+                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                            }`}
+                          >
+                            {tagEmojis[tag]} {tag}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">
+                      Description
+                    </label>
+                    <input 
+                      type="text" 
+                      value={travelForm.description}
+                      onChange={(e) => setTravelForm({...travelForm, description: e.target.value})}
+                      placeholder="e.g., ATL to Memphis, Hilton Hotel, Course Name"
+                      className="w-full px-3 py-2 border rounded-lg text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">
+                      Start Date
+                    </label>
+                    <input 
+                      type="date"
+                      value={travelForm.startDate}
+                      onChange={(e) => setTravelForm({...travelForm, startDate: e.target.value})}
+                      className="w-full px-3 py-2 border rounded-lg text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">
+                      End Date
+                    </label>
+                    <input 
+                      type="date"
+                      value={travelForm.endDate}
+                      onChange={(e) => setTravelForm({...travelForm, endDate: e.target.value})}
+                      className="w-full px-3 py-2 border rounded-lg text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">
+                      Destination
+                    </label>
+                    <input 
+                      type="text" 
+                      value={travelForm.location}
+                      onChange={(e) => setTravelForm({...travelForm, location: e.target.value})}
+                      placeholder="e.g., Memphis, Atlanta, GA"
+                      className="w-full px-3 py-2 border rounded-lg text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">
+                      Confirmation #
+                    </label>
+                    <input 
+                      type="text" 
+                      value={travelForm.confirmation}
+                      onChange={(e) => setTravelForm({...travelForm, confirmation: e.target.value})}
+                      placeholder="e.g., #GX5JAV, 3395896664"
+                      className="w-full px-3 py-2 border rounded-lg text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">
+                      🔗 URL (Hotel/Conference Link)
+                    </label>
+                    <input 
+                      type="url" 
+                      value={travelForm.url}
+                      onChange={(e) => setTravelForm({...travelForm, url: e.target.value})}
+                      placeholder="e.g., https://hilton.com/booking"
+                      className="w-full px-3 py-2 border rounded-lg text-sm"
+                    />
+                  </div>
+                </div>
+                {editingTravelId ? (
+                  <div className="grid grid-cols-2 gap-3 mt-4">
+                    <button 
+                      onClick={saveEditTravel}
+                      className="py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition font-medium"
+                    >
+                      ✓ Save Changes
+                    </button>
+                    <button 
+                      onClick={cancelEditTravel}
+                      className="py-2 bg-gray-400 text-white rounded-lg hover:bg-gray-500 transition font-medium"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button 
+                    onClick={addTravelEntry}
+                    className="w-full mt-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-medium"
+                  >
+                    ➕ Add Entry
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default DailyTaskTracker;
+// Render the app
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<DailyTaskTracker />);
+  </script>
+</body>
+</html>
