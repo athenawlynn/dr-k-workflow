@@ -163,6 +163,9 @@ const DailyTaskTracker = () => {
   const [travelSearchQuery, setTravelSearchQuery] = useState('');
   const [travelTagFilter, setTravelTagFilter] = useState('all');
   
+  // Task editing state
+  const [editingTaskId, setEditingTaskId] = useState(null);
+  
   // Available travel tags
   const travelTags = ['Flight', 'Hotel', 'Car', 'Event', 'Conference', 'Course'];
   
@@ -673,6 +676,50 @@ const DailyTaskTracker = () => {
     await saveTasksToStorage(updatedTasks);
   };
 
+  // Edit task functions
+  const startEditTask = (task) => {
+    setEditingTaskId(task.id);
+    setFormData({
+      category: task.category,
+      tag: task.tag,
+      section: task.section || '',
+      description: task.description,
+      emailLink: task.emailLink || '',
+      urgent: task.urgent,
+      attachments: task.attachments || []
+    });
+  };
+
+  const saveEditTask = async () => {
+    if (!formData.description.trim()) {
+      alert('Please enter a task description');
+      return;
+    }
+
+    const updatedTasks = tasks.map(task =>
+      task.id === editingTaskId
+        ? { ...task, ...formData }
+        : task
+    );
+    setTasks(updatedTasks);
+    await saveTasksToStorage(updatedTasks);
+    
+    cancelEditTask();
+  };
+
+  const cancelEditTask = () => {
+    setEditingTaskId(null);
+    setFormData({
+      category: 'Review',
+      tag: 'Office',
+      section: '',
+      description: '',
+      emailLink: '',
+      urgent: false,
+      attachments: []
+    });
+  };
+
   // Travel Management Functions
   const loadTravelEntries = async () => {
     try {
@@ -1114,7 +1161,7 @@ Important formatting rules:
   // Group tasks by section
   const groupTasksBySection = (taskList) => {
     const sections = {
-      "This Week's Projects": [],
+      "THIS WEEK'S PROJECTS": [],
       "OFFICE RELATED": [],
       "FINANCE RELATED": [],
       "PERSONAL RELATED": [],
@@ -1127,8 +1174,10 @@ Important formatting rules:
       // Skip section headers
       if (task.category === 'Section Header') return;
 
-      // Group by tag primarily
-      if (task.tag === 'Finance') {
+      // Check for This Week's Projects first
+      if (task.tag === "This Week's Projects") {
+        sections["THIS WEEK'S PROJECTS"].push(task);
+      } else if (task.tag === 'Finance') {
         sections["FINANCE RELATED"].push(task);
       } else if (task.tag === 'Office') {
         sections["OFFICE RELATED"].push(task);
@@ -1149,7 +1198,9 @@ Important formatting rules:
 
   // Get section header color
   const getSectionColor = (sectionName) => {
-    if (sectionName.includes('FINANCE')) {
+    if (sectionName.includes("WEEK'S PROJECTS")) {
+      return 'bg-gradient-to-r from-rose-600 to-pink-500';
+    } else if (sectionName.includes('FINANCE')) {
       return 'bg-gradient-to-r from-purple-600 to-purple-500';
     } else if (sectionName.includes('OFFICE')) {
       return 'bg-gradient-to-r from-blue-600 to-blue-500';
@@ -1244,6 +1295,7 @@ Important formatting rules:
         'Errands': 'bg-amber-700 text-white'
       },
       tag: {
+        "This Week's Projects": 'bg-rose-100 text-rose-700',
         'Office': 'bg-blue-100 text-blue-700',
         'Finance': 'bg-green-100 text-green-700',
         'Personal': 'bg-purple-100 text-purple-700',
@@ -1497,6 +1549,12 @@ Important formatting rules:
                 <h3 className="text-lg font-bold text-gray-800 mb-4">🔘 Button Guide:</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="flex items-center gap-3">
+                    <span className="text-2xl">✏️</span>
+                    <span className={`text-sm ${
+                    darkMode ? "text-gray-300" : "text-gray-700"
+                  }`}>Edit task details</span>
+                  </div>
+                  <div className="flex items-center gap-3">
                     <span className="text-2xl">⚡</span>
                     <span className={`text-sm ${
                     darkMode ? "text-gray-300" : "text-gray-700"
@@ -1644,6 +1702,13 @@ Important formatting rules:
                               )}
                             </div>
                             <div className="flex gap-2">
+                              <button
+                                onClick={() => startEditTask(task)}
+                                className="w-7 h-7 bg-blue-100 hover:bg-blue-200 rounded-md flex items-center justify-center transition text-xs"
+                                title="Edit task"
+                              >
+                                ✏️
+                              </button>
                               <button
                                 onClick={() => toggleUrgent(task.id)}
                                 className={`w-7 h-7 rounded-md flex items-center justify-center transition text-xs font-bold ${
@@ -1798,7 +1863,7 @@ Important formatting rules:
               <h3 className={`text-xl font-serif font-bold mb-4 ${
                 darkMode ? 'text-white' : 'text-indigo-900'
               }`}>
-                ➕ Manage Tasks (Athena)
+                {editingTaskId ? '✏️ Edit Task' : '➕ Manage Tasks (Athena)'}
               </h3>
               
               <div className="bg-gray-50 rounded-xl p-5">
@@ -1832,6 +1897,7 @@ Important formatting rules:
                       onChange={(e) => setFormData({...formData, tag: e.target.value})}
                       className="w-full px-3 py-2 border rounded-lg text-sm"
                     >
+                      <option>This Week's Projects</option>
                       <option>Office</option>
                       <option>Finance</option>
                       <option>Personal</option>
@@ -1944,12 +2010,29 @@ Important formatting rules:
                   <p className="text-xs text-blue-600 mt-1">☁️ Files are stored permanently and synced with Dr. Koch</p>
                 </div>
 
-                <button 
-                  onClick={addTask}
-                  className="w-full py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition font-medium"
-                >
-                  ➕ Add Task
-                </button>
+                {editingTaskId ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    <button 
+                      onClick={saveEditTask}
+                      className="py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-medium"
+                    >
+                      ✓ Save Changes
+                    </button>
+                    <button 
+                      onClick={cancelEditTask}
+                      className="py-2 bg-gray-400 text-white rounded-lg hover:bg-gray-500 transition font-medium"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button 
+                    onClick={addTask}
+                    className="w-full py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition font-medium"
+                  >
+                    ➕ Add Task
+                  </button>
+                )}
               </div>
             </div>
           </div>
