@@ -21,7 +21,7 @@ const DailyTaskTracker = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [showRecapButtons, setShowRecapButtons] = useState(false);
   const [isEditingRecap, setIsEditingRecap] = useState(false);
-  const [activeSection, setActiveSection] = useState('instructions'); // 'instructions', 'tasks', 'recap', 'travel'
+  const [activeSection, setActiveSection] = useState('tasks'); // 'tasks', 'recap', 'travel', 'instructions'
   const [expandedNotes, setExpandedNotes] = useState({});
   
   // Travel state
@@ -278,6 +278,18 @@ const DailyTaskTracker = () => {
 
   const loadInitialTasks = () => {
     const initialTasks = [
+  {
+    id: 100,
+    category: "Review",
+    tag: "This Week's Projects",
+    description: "This is a sample project for this week. Edit or delete this task and add your own weekly projects here!",
+    urgent: false,
+    completed: false,
+    notes: "",
+    emailLink: "",
+    carriedOver: false,
+    attachments: []
+  },
   {
     id: 1,
     category: "Respond",
@@ -1362,19 +1374,6 @@ Important formatting rules:
           {/* Section Tabs */}
           <div className="flex gap-2 mt-6 border-b-2">
             <button
-              onClick={() => setActiveSection('instructions')}
-              className={`px-6 py-3 font-semibold transition relative ${
-                activeSection === 'instructions'
-                  ? 'text-indigo-600'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              📖 Instructions
-              {activeSection === 'instructions' && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600"></div>
-              )}
-            </button>
-            <button
               onClick={() => setActiveSection('tasks')}
               className={`px-6 py-3 font-semibold transition relative ${
                 activeSection === 'tasks'
@@ -1410,6 +1409,19 @@ Important formatting rules:
             >
               ✈️ Travel
               {activeSection === 'travel' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600"></div>
+              )}
+            </button>
+            <button
+              onClick={() => setActiveSection('instructions')}
+              className={`px-6 py-3 font-semibold transition relative ${
+                activeSection === 'instructions'
+                  ? 'text-indigo-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              📖 Instructions
+              {activeSection === 'instructions' && (
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600"></div>
               )}
             </button>
