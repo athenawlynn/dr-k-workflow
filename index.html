@@ -12,7 +12,7 @@
 <body>
   <div id="root"></div>
   <script type="text/babel">
-import React, { useState, useEffect } from 'react';
+const { useState, useEffect } = React;
 
 const DailyTaskTracker = () => {
   const [tasks, setTasks] = useState([]);
@@ -2512,7 +2512,6 @@ Important formatting rules:
   );
 };
 
-export default DailyTaskTracker;
 // Render the app
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<DailyTaskTracker />);
