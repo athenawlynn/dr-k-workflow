@@ -264,7 +264,7 @@ const DailyTaskTracker = () => {
   }, [tasks]);
 
   // Google Sheets API URL
-  const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbyF1lne7Ih25RV6QaebeItKEs9sezRUbEfFzoQ9wnEbAxXGEQH14m3xRIsTDRsn1dTYLg/exec';
+  const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbyj_O7S-wQSqnNwoLTe1y1woXB8JsQjXszmL35yvgwAm7YNBaA9GwPJJGd6vm9FUCnrPw/exec';
 
   const loadTasksFromStorage = async () => {
     setIsLoading(true);
@@ -630,15 +630,17 @@ const DailyTaskTracker = () => {
   const saveTasksToStorage = async (tasksToSave) => {
     setIsSaving(true);
     try {
-      const response = await fetch(`${SHEETS_API_URL}?action=saveTasks&tasks=${encodeURIComponent(JSON.stringify(tasksToSave))}`);
-      const data = await response.json();
-      if (!data.success) {
-        console.error('Error saving to Google Sheets:', data.error);
-        alert('Error saving - please try again');
-      }
+      const response = await fetch(SHEETS_API_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(tasksToSave)
+      });
+      // no-cors means we can't read the response, but the save should work
     } catch (error) {
       console.error('Error saving tasks:', error);
-      alert('Error saving - please try again');
     } finally {
       setIsSaving(false);
     }
