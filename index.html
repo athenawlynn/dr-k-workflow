@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1226,29 +1227,83 @@ Important formatting rules:
     }
   };
 
-  // Make links in text clickable
+  // Make links in text clickable and support **bold** and __underline__
   const renderDescriptionWithLinks = (text) => {
-    // Match URLs
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
-    const parts = text.split(urlRegex);
+    if (!text) return text;
     
-    return parts.map((part, index) => {
-      if (part.match(urlRegex)) {
-        return (
-          <a 
-            key={index}
-            href={part}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 hover:text-blue-800 underline font-medium"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {part.length > 50 ? part.substring(0, 50) + '...' : part}
-          </a>
-        );
+    // Process the text for formatting
+    const processFormatting = (str, keyPrefix = '') => {
+      const result = [];
+      let remaining = str;
+      let partIndex = 0;
+      
+      while (remaining.length > 0) {
+        // Check for **bold**
+        const boldMatch = remaining.match(/\*\*(.+?)\*\*/);
+        // Check for __underline__
+        const underlineMatch = remaining.match(/__(.+?)__/);
+        // Check for URLs
+        const urlMatch = remaining.match(/(https?:\/\/[^\s]+)/);
+        
+        // Find which comes first
+        const matches = [
+          boldMatch ? { type: 'bold', match: boldMatch, index: remaining.indexOf(boldMatch[0]) } : null,
+          underlineMatch ? { type: 'underline', match: underlineMatch, index: remaining.indexOf(underlineMatch[0]) } : null,
+          urlMatch ? { type: 'url', match: urlMatch, index: remaining.indexOf(urlMatch[0]) } : null,
+        ].filter(m => m !== null).sort((a, b) => a.index - b.index);
+        
+        if (matches.length === 0) {
+          // No more special content
+          result.push(remaining);
+          break;
+        }
+        
+        const firstMatch = matches[0];
+        
+        // Add text before the match
+        if (firstMatch.index > 0) {
+          result.push(remaining.substring(0, firstMatch.index));
+        }
+        
+        // Add the formatted content
+        if (firstMatch.type === 'bold') {
+          result.push(
+            <strong key={`${keyPrefix}-bold-${partIndex}`} className="font-bold">
+              {firstMatch.match[1]}
+            </strong>
+          );
+          remaining = remaining.substring(firstMatch.index + firstMatch.match[0].length);
+        } else if (firstMatch.type === 'underline') {
+          result.push(
+            <span key={`${keyPrefix}-underline-${partIndex}`} className="underline">
+              {firstMatch.match[1]}
+            </span>
+          );
+          remaining = remaining.substring(firstMatch.index + firstMatch.match[0].length);
+        } else if (firstMatch.type === 'url') {
+          const url = firstMatch.match[0];
+          result.push(
+            <a 
+              key={`${keyPrefix}-url-${partIndex}`}
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-800 underline font-medium"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {url.length > 50 ? url.substring(0, 50) + '...' : url}
+            </a>
+          );
+          remaining = remaining.substring(firstMatch.index + url.length);
+        }
+        
+        partIndex++;
       }
-      return part;
-    });
+      
+      return result;
+    };
+    
+    return processFormatting(text);
   };
 
   const groupedTasks = groupTasksBySection(filteredTasks);
@@ -2015,6 +2070,7 @@ Important formatting rules:
                     placeholder="Enter task details..."
                     className="w-full px-3 py-2 border rounded-lg text-sm min-h-20"
                   />
+                  <p className="text-xs text-gray-500 mt-1">💡 Use **text** for <strong>bold</strong> and __text__ for <span className="underline">underline</span></p>
                 </div>
 
                 <div className="mb-3">
@@ -2028,7 +2084,7 @@ Important formatting rules:
                     placeholder="Paste Gmail link here (https://mail.google.com/...)"
                     className="w-full px-3 py-2 border rounded-lg text-sm"
                   />
-                  <p className="text-xs text-gray-500 mt-1">💡 Paste the Gmail link from "Show original" → will appear as "View Email" button</p>
+                  <p className="text-xs text-gray-500 mt-1">💡 Open email in Gmail → copy URL from address bar</p>
                 </div>
 
                 <div className="flex items-center gap-2 mb-3">
