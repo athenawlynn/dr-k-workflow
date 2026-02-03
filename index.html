@@ -911,12 +911,14 @@ const DailyTaskTracker = () => {
   const startEditTravel = (entry) => {
     setEditingTravelId(entry.id);
     setTravelForm({
-      type: entry.type,
-      description: entry.description,
-      startDate: entry.startDate,
-      endDate: entry.endDate,
-      location: entry.location,
-      confirmation: entry.confirmation
+      type: entry.type || 'Flight',
+      description: entry.description || '',
+      startDate: entry.startDate || '',
+      endDate: entry.endDate || '',
+      location: entry.location || '',
+      confirmation: entry.confirmation || '',
+      url: entry.url || '',
+      tags: entry.tags || []
     });
   };
 
