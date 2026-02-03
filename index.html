@@ -1102,7 +1102,7 @@ const DailyTaskTracker = () => {
     localStorage.setItem('darkMode', newMode.toString());
   };
 
-  const generateRecap = async () => {
+  const generateRecap = () => {
     if (tasks.length === 0) {
       alert('No tasks to generate recap from. Add some tasks first!');
       return;
@@ -1111,63 +1111,77 @@ const DailyTaskTracker = () => {
     setIsGenerating(true);
     setShowRecapButtons(false);
 
-    try {
-      const prompt = `You are helping format a daily recap for Dr. Koch. Here are today's tasks organized by category. Please format them into a professional daily recap email following this exact structure:
+    // Group tasks by section
+    const sections = {
+      "OFFICE": tasks.filter(t => t.tag === 'Office'),
+      "FINANCE": tasks.filter(t => t.tag === 'Finance'),
+      "PERSONAL": tasks.filter(t => t.tag === 'Personal'),
+      "REAL ESTATE": tasks.filter(t => t.tag === 'Real Estate'),
+      "THIS WEEK'S PROJECTS": tasks.filter(t => t.tag === "This Week's Projects"),
+      "OTHER": tasks.filter(t => t.tag === 'Other')
+    };
 
-Hello Dr. Koch, here is your DAILY RECAP – ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+    const dateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+    
+    let recap = `Hello Dr. Koch, here is your DAILY RECAP – ${dateStr}\n\n`;
+    
+    const sectionEmojis = {
+      "OFFICE": "🏢",
+      "FINANCE": "💰",
+      "PERSONAL": "🏡",
+      "REAL ESTATE": "🏗️",
+      "THIS WEEK'S PROJECTS": "📌",
+      "OTHER": "📋"
+    };
 
-🏢 OFFICE-RELATED ITEMS
-[Group tasks by category (Action Required, Review, No Action Needed)]
+    Object.entries(sections).forEach(([sectionName, sectionTasks]) => {
+      if (sectionTasks.length > 0) {
+        recap += `${sectionEmojis[sectionName]} ${sectionName}-RELATED ITEMS\n`;
+        
+        // Group by category within section
+        const actionRequired = sectionTasks.filter(t => ['Respond', 'Sign', 'Approve', 'PAY'].includes(t.category) && !t.completed);
+        const review = sectionTasks.filter(t => t.category === 'Review' && !t.completed);
+        const noAction = sectionTasks.filter(t => ['No Action Needed', 'Hold'].includes(t.category) && !t.completed);
+        const completed = sectionTasks.filter(t => t.completed);
 
-💰 FINANCE-RELATED ITEMS
-[Group tasks by category]
+        if (actionRequired.length > 0) {
+          recap += `\nAction Required:\n`;
+          actionRequired.forEach(t => {
+            recap += `• [${t.category}] ${t.description}\n`;
+          });
+        }
 
-🏡 PERSONAL (NOT BUSINESS) ITEMS
-[Group tasks by category]
+        if (review.length > 0) {
+          recap += `\nFor Review:\n`;
+          review.forEach(t => {
+            recap += `• ${t.description}\n`;
+          });
+        }
 
-🏗️ REAL ESTATE ITEMS
-[Group tasks by category if any]
+        if (noAction.length > 0) {
+          recap += `\nNo Action Needed (FYI):\n`;
+          noAction.forEach(t => {
+            recap += `• ${t.description}\n`;
+          });
+        }
 
-📋 OTHER
-[Any remaining items]
+        if (completed.length > 0) {
+          recap += `\n✅ Completed:\n`;
+          completed.forEach(t => {
+            recap += `• ${t.description}\n`;
+          });
+        }
 
-Here are the tasks:
-${JSON.stringify(tasks, null, 2)}
+        recap += `\n`;
+      }
+    });
 
-Important formatting rules:
-- Use bullet points (•) for each task
-- Keep the exact wording from the task descriptions
-- Group by "Action Required", "Review", and "No Action Needed" within each section
-- Only include sections that have tasks
-- Maintain the professional, concise tone
-- Use the EXACT emojis shown above for each section header
-- Don't add any extra commentary or suggestions`;
+    recap += `---\nTotal Tasks: ${tasks.length} | Completed: ${tasks.filter(t => t.completed).length} | Remaining: ${tasks.filter(t => !t.completed).length}`;
 
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
-          messages: [
-            { role: 'user', content: prompt }
-          ]
-        })
-      });
-
-      const data = await response.json();
-      const recap = data.content[0].text;
-      setRecapText(recap);
-      setShowRecapButtons(true);
-      setIsEditingRecap(true); // Auto-enable editing mode
-    } catch (error) {
-      console.error('Error generating recap:', error);
-      setRecapText('Error generating recap. Please try again.');
-    } finally {
-      setIsGenerating(false);
-    }
+    setRecapText(recap);
+    setShowRecapButtons(true);
+    setIsEditingRecap(true);
+    setIsGenerating(false);
   };
 
   const copyRecap = () => {
@@ -1476,19 +1490,6 @@ Important formatting rules:
               )}
             </button>
             <button
-              onClick={() => setActiveSection('recap')}
-              className={`px-6 py-3 font-semibold transition relative ${
-                activeSection === 'recap'
-                  ? 'text-indigo-600'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              ✨ Daily Recap
-              {activeSection === 'recap' && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600"></div>
-              )}
-            </button>
-            <button
               onClick={() => setActiveSection('travel')}
               className={`px-6 py-3 font-semibold transition relative ${
                 activeSection === 'travel'
@@ -1712,13 +1713,57 @@ Important formatting rules:
                   </li>
                   <li className="flex gap-2">
                     <span>•</span>
-                    <span>Refresh the page to see updates made by the other person</span>
+                    <span>Click 🔄 Sync to see updates made by the other person</span>
                   </li>
                   <li className="flex gap-2">
                     <span>•</span>
-                    <span>Use "New Day" button at the top to clear tasks and start fresh</span>
+                    <span>Use "Clear All" button at the top to clear tasks and start fresh</span>
                   </li>
                 </ul>
+              </div>
+
+              {/* Daily Recap Tool - Athena Only */}
+              <div className={`border-l-4 border-indigo-500 p-6 rounded-r-lg ${
+                darkMode ? "bg-indigo-900" : "bg-indigo-50"
+              }`}>
+                <h3 className={`text-lg font-bold mb-3 ${
+                  darkMode ? "text-indigo-300" : "text-indigo-900"
+                }`}>✨ Daily Recap Tool (Athena Only)</h3>
+                <p className={`text-sm mb-4 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>
+                  Generate a template recap grouped by section, then edit before emailing to Dr. K.
+                </p>
+                
+                <button 
+                  onClick={generateRecap}
+                  className="w-full py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium mb-4"
+                >
+                  ✨ Generate Daily Recap Template
+                </button>
+
+                {recapText && (
+                  <div className="space-y-3">
+                    <textarea
+                      value={recapText}
+                      onChange={(e) => setRecapText(e.target.value)}
+                      className="w-full min-h-64 px-4 py-3 border-2 border-indigo-300 rounded-lg text-sm font-mono leading-relaxed focus:outline-none focus:border-indigo-500 bg-white"
+                      style={{ whiteSpace: 'pre-wrap' }}
+                    />
+                    <div className="grid grid-cols-2 gap-3">
+                      <button 
+                        onClick={copyRecap}
+                        className="py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition font-medium text-sm"
+                      >
+                        📋 Copy to Clipboard
+                      </button>
+                      <button 
+                        onClick={emailToDrKoch}
+                        className="py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium text-sm"
+                      >
+                        📧 Email to Dr. Koch
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Get Started Button */}
@@ -2216,85 +2261,6 @@ Important formatting rules:
                 )}
               </div>
             </div>
-          </div>
-        )}
-
-        {/* Recap Section */}
-        {activeSection === 'recap' && (
-          <div className={`rounded-2xl shadow-2xl p-6 transition-colors ${
-            darkMode ? 'bg-gray-800' : 'bg-white'
-          }`}>
-            <h2 className={`text-2xl font-serif font-bold mb-6 pb-4 border-b-2 ${
-              darkMode ? 'text-white border-gray-600' : 'text-indigo-900 border-gray-200'
-            }`}>
-              Daily Recap
-            </h2>
-
-            <button 
-              onClick={generateRecap}
-              disabled={isGenerating}
-              className="w-full py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium mb-6 disabled:opacity-50"
-            >
-              {isGenerating ? '⏳ Creating Recap...' : '✨ Create and Edit Daily Recap'}
-            </button>
-
-            <div className="bg-gray-50 border rounded-xl p-6 mb-4 min-h-96">
-              {isGenerating ? (
-                <div className="flex flex-col items-center justify-center h-full py-20">
-                  <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-                  <p className="text-gray-600">Creating your daily recap...</p>
-                </div>
-              ) : recapText ? (
-                <div>
-                  <div className="flex justify-between items-center mb-3">
-                    <label className="text-xs font-semibold text-gray-600 uppercase">
-                      Daily Recap {isEditingRecap && '(Editing)'}
-                    </label>
-                    <button
-                      onClick={() => setIsEditingRecap(!isEditingRecap)}
-                      className="text-xs px-3 py-1 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded font-semibold transition"
-                    >
-                      {isEditingRecap ? '✓ Done Editing' : '✏️ Edit'}
-                    </button>
-                  </div>
-                  {isEditingRecap ? (
-                    <textarea
-                      value={recapText}
-                      onChange={(e) => setRecapText(e.target.value)}
-                      className="w-full min-h-96 px-4 py-3 border-2 border-indigo-300 rounded-lg text-sm font-mono leading-relaxed focus:outline-none focus:border-indigo-500"
-                      style={{ whiteSpace: 'pre-wrap' }}
-                    />
-                  ) : (
-                    <pre className="whitespace-pre-wrap text-sm font-sans leading-relaxed">
-                      {recapText}
-                    </pre>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center py-20 text-gray-500">
-                  <div className="text-6xl mb-4">📝</div>
-                  <p className="text-lg mb-2">Ready to create your daily recap</p>
-                  <p className="text-sm">Click the button above for a formatted summary of today's tasks</p>
-                </div>
-              )}
-            </div>
-
-            {showRecapButtons && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <button 
-                  onClick={copyRecap}
-                  className="py-3 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition font-medium"
-                >
-                  📋 Copy to Clipboard
-                </button>
-                <button 
-                  onClick={emailToDrKoch}
-                  className="py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium"
-                >
-                  📧 Email to Dr. Koch
-                </button>
-              </div>
-            )}
           </div>
         )}
 
