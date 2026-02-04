@@ -25,8 +25,6 @@ const DailyTaskTracker = () => {
   const [isEditingRecap, setIsEditingRecap] = useState(false);
   const [activeSection, setActiveSection] = useState('tasks'); // 'tasks', 'recap', 'travel', 'instructions'
   const [expandedNotes, setExpandedNotes] = useState({});
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
   
   // Travel state
   const initialTravelEntries = [
@@ -263,25 +261,20 @@ const DailyTaskTracker = () => {
     return () => clearInterval(interval);
   }, [tasks]);
 
-  // Google Sheets API URL
-  const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbyQzSaEi26pzx-oxnElDvx4sbejxU8zjNaniVAEp1-PR55fwGT0yQ8duhFtZ9fGcDP2ew/exec';
-
   const loadTasksFromStorage = async () => {
-    setIsLoading(true);
     try {
-      const response = await fetch(`${SHEETS_API_URL}?action=getTasks`);
-      const data = await response.json();
-      if (data.success && data.tasks && data.tasks.length > 0) {
-        setTasks(data.tasks);
+      // Try to load tasks from shared storage
+      const result = await window.storage.get('daily-tasks', true);
+      if (result && result.value) {
+        const savedTasks = JSON.parse(result.value);
+        setTasks(savedTasks);
       } else {
-        // No tasks in Google Sheets yet
-        setTasks([]);
+        // Load initial demo tasks if nothing in storage
+        loadInitialTasks();
       }
     } catch (error) {
-      console.log('Error loading tasks from Google Sheets:', error);
-      setTasks([]);
-    } finally {
-      setIsLoading(false);
+      console.log('No existing tasks, loading initial tasks');
+      loadInitialTasks();
     }
   };
 
@@ -628,18 +621,10 @@ const DailyTaskTracker = () => {
   };
 
   const saveTasksToStorage = async (tasksToSave) => {
-    setIsSaving(true);
     try {
-      await fetch(SHEETS_API_URL, {
-        method: 'POST',
-        redirect: 'follow',
-        body: JSON.stringify(tasksToSave),
-      });
-      console.log('Tasks saved to Google Sheets');
+      await window.storage.set('daily-tasks', JSON.stringify(tasksToSave), true);
     } catch (error) {
-      console.log('Save attempted:', error.message);
-    } finally {
-      setIsSaving(false);
+      console.error('Error saving tasks:', error);
     }
   };
 
@@ -920,6 +905,10 @@ const DailyTaskTracker = () => {
       url: entry.url || '',
       tags: entry.tags || []
     });
+    // Scroll to form
+    setTimeout(() => {
+      document.getElementById('travel-form')?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
   };
 
   const saveEditTravel = async () => {
@@ -1258,83 +1247,29 @@ const DailyTaskTracker = () => {
     }
   };
 
-  // Make links in text clickable and support **bold** and __underline__
+  // Make links in text clickable
   const renderDescriptionWithLinks = (text) => {
-    if (!text) return text;
+    // Match URLs
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = text.split(urlRegex);
     
-    // Process the text for formatting
-    const processFormatting = (str, keyPrefix = '') => {
-      const result = [];
-      let remaining = str;
-      let partIndex = 0;
-      
-      while (remaining.length > 0) {
-        // Check for **bold**
-        const boldMatch = remaining.match(/\*\*(.+?)\*\*/);
-        // Check for __underline__
-        const underlineMatch = remaining.match(/__(.+?)__/);
-        // Check for URLs
-        const urlMatch = remaining.match(/(https?:\/\/[^\s]+)/);
-        
-        // Find which comes first
-        const matches = [
-          boldMatch ? { type: 'bold', match: boldMatch, index: remaining.indexOf(boldMatch[0]) } : null,
-          underlineMatch ? { type: 'underline', match: underlineMatch, index: remaining.indexOf(underlineMatch[0]) } : null,
-          urlMatch ? { type: 'url', match: urlMatch, index: remaining.indexOf(urlMatch[0]) } : null,
-        ].filter(m => m !== null).sort((a, b) => a.index - b.index);
-        
-        if (matches.length === 0) {
-          // No more special content
-          result.push(remaining);
-          break;
-        }
-        
-        const firstMatch = matches[0];
-        
-        // Add text before the match
-        if (firstMatch.index > 0) {
-          result.push(remaining.substring(0, firstMatch.index));
-        }
-        
-        // Add the formatted content
-        if (firstMatch.type === 'bold') {
-          result.push(
-            <strong key={`${keyPrefix}-bold-${partIndex}`} className="font-bold">
-              {firstMatch.match[1]}
-            </strong>
-          );
-          remaining = remaining.substring(firstMatch.index + firstMatch.match[0].length);
-        } else if (firstMatch.type === 'underline') {
-          result.push(
-            <span key={`${keyPrefix}-underline-${partIndex}`} className="underline">
-              {firstMatch.match[1]}
-            </span>
-          );
-          remaining = remaining.substring(firstMatch.index + firstMatch.match[0].length);
-        } else if (firstMatch.type === 'url') {
-          const url = firstMatch.match[0];
-          result.push(
-            <a 
-              key={`${keyPrefix}-url-${partIndex}`}
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 hover:text-blue-800 underline font-medium"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {url.length > 50 ? url.substring(0, 50) + '...' : url}
-            </a>
-          );
-          remaining = remaining.substring(firstMatch.index + url.length);
-        }
-        
-        partIndex++;
+    return parts.map((part, index) => {
+      if (part.match(urlRegex)) {
+        return (
+          <a 
+            key={index}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:text-blue-800 underline font-medium"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {part.length > 50 ? part.substring(0, 50) + '...' : part}
+          </a>
+        );
       }
-      
-      return result;
-    };
-    
-    return processFormatting(text);
+      return part;
+    });
   };
 
   const groupedTasks = groupTasksBySection(filteredTasks);
@@ -1441,37 +1376,13 @@ const DailyTaskTracker = () => {
                 </p>
               </div>
             </div>
-            <div className="flex gap-3 items-center">
-              {isSaving && (
-                <span className="text-sm text-green-600 flex items-center gap-1">
-                  <span className="animate-spin">⏳</span> Saving...
-                </span>
-              )}
-              <button
-                onClick={loadTasksFromStorage}
-                disabled={isLoading}
-                className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition flex items-center gap-2 disabled:opacity-50"
-                title="Refresh from Google Sheets"
-              >
-                {isLoading ? '⏳' : '🔄'} Sync
-              </button>
+            <div className="flex gap-3">
               <button
                 onClick={toggleDarkMode}
                 className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition flex items-center gap-2"
                 title={darkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
               >
                 {darkMode ? '☀️' : '🌙'} {darkMode ? 'Light' : 'Dark'}
-              </button>
-              <button 
-                onClick={() => {
-                  if (window.confirm('Clear all tasks and start fresh?')) {
-                    setTasks([]);
-                    saveTasksToStorage([]);
-                  }
-                }}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
-              >
-                🗑️ Clear All
               </button>
             </div>
           </div>
@@ -1717,10 +1628,6 @@ const DailyTaskTracker = () => {
                     <span>•</span>
                     <span>Click 🔄 Sync to see updates made by the other person</span>
                   </li>
-                  <li className="flex gap-2">
-                    <span>•</span>
-                    <span>Use "Clear All" button at the top to clear tasks and start fresh</span>
-                  </li>
                 </ul>
               </div>
 
@@ -1813,15 +1720,10 @@ const DailyTaskTracker = () => {
 
             {/* Task List */}
             <div className="space-y-6 max-h-[600px] overflow-y-auto">
-              {isLoading ? (
-                <div className="text-center py-12 text-gray-500">
-                  <div className="text-5xl mb-4 animate-spin">⏳</div>
-                  <p>Loading tasks from Google Sheets...</p>
-                </div>
-              ) : filteredTasks.length === 0 ? (
+              {filteredTasks.length === 0 ? (
                 <div className="text-center py-12 text-gray-500">
                   <div className="text-5xl mb-4">📋</div>
-                  <p>No tasks yet. Add your first task below!</p>
+                  <p>No tasks yet. Add your first task above!</p>
                 </div>
               ) : (
                 groupedTasks.map(([sectionName, sectionTasks]) => (
@@ -2155,7 +2057,6 @@ const DailyTaskTracker = () => {
                     placeholder="Enter task details..."
                     className="w-full px-3 py-2 border rounded-lg text-sm min-h-20"
                   />
-                  <p className="text-xs text-gray-500 mt-1">💡 Use **text** for <strong>bold</strong> and __text__ for <span className="underline">underline</span></p>
                 </div>
 
                 <div className="mb-3">
@@ -2169,7 +2070,7 @@ const DailyTaskTracker = () => {
                     placeholder="Paste Gmail link here (https://mail.google.com/...)"
                     className="w-full px-3 py-2 border rounded-lg text-sm"
                   />
-                  <p className="text-xs text-gray-500 mt-1">💡 Open email in Gmail → copy URL from address bar</p>
+                  <p className="text-xs text-gray-500 mt-1">💡 Paste the Gmail link from "Show original" → will appear as "View Email" button</p>
                 </div>
 
                 <div className="flex items-center gap-2 mb-3">
@@ -2595,7 +2496,7 @@ const DailyTaskTracker = () => {
             </div>
 
             {/* Add Travel Entry Form - At Bottom for Athena */}
-            <div className="mt-8 pt-6 border-t-2 border-gray-200">
+            <div id="travel-form" className="mt-8 pt-6 border-t-2 border-gray-200">
               <h3 className={`text-xl font-serif font-bold mb-4 ${
                 darkMode ? 'text-white' : 'text-indigo-900'
               }`}>
