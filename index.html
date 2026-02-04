@@ -25,6 +25,8 @@ const DailyTaskTracker = () => {
   const [isEditingRecap, setIsEditingRecap] = useState(false);
   const [activeSection, setActiveSection] = useState('tasks'); // 'tasks', 'recap', 'travel', 'instructions'
   const [expandedNotes, setExpandedNotes] = useState({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   
   // Travel state
   const initialTravelEntries = [
@@ -261,20 +263,24 @@ const DailyTaskTracker = () => {
     return () => clearInterval(interval);
   }, [tasks]);
 
+  // Google Sheets API URL
+  const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbyQzSaEi26pzx-oxnElDvx4sbejxU8zjNaniVAEp1-PR55fwGT0yQ8duhFtZ9fGcDP2ew/exec';
+
   const loadTasksFromStorage = async () => {
+    setIsLoading(true);
     try {
-      // Try to load tasks from shared storage
-      const result = await window.storage.get('daily-tasks', true);
-      if (result && result.value) {
-        const savedTasks = JSON.parse(result.value);
-        setTasks(savedTasks);
+      const response = await fetch(`${SHEETS_API_URL}?action=getTasks`);
+      const data = await response.json();
+      if (data.success && data.tasks && data.tasks.length > 0) {
+        setTasks(data.tasks);
       } else {
-        // Load initial demo tasks if nothing in storage
-        loadInitialTasks();
+        setTasks([]);
       }
     } catch (error) {
-      console.log('No existing tasks, loading initial tasks');
-      loadInitialTasks();
+      console.log('Error loading tasks from Google Sheets:', error);
+      setTasks([]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -621,10 +627,18 @@ const DailyTaskTracker = () => {
   };
 
   const saveTasksToStorage = async (tasksToSave) => {
+    setIsSaving(true);
     try {
-      await window.storage.set('daily-tasks', JSON.stringify(tasksToSave), true);
+      await fetch(SHEETS_API_URL, {
+        method: 'POST',
+        redirect: 'follow',
+        body: JSON.stringify(tasksToSave),
+      });
+      console.log('Tasks saved to Google Sheets');
     } catch (error) {
-      console.error('Error saving tasks:', error);
+      console.log('Save attempted:', error.message);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -1376,7 +1390,20 @@ const DailyTaskTracker = () => {
                 </p>
               </div>
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-3 items-center">
+              {isSaving && (
+                <span className="text-sm text-green-600 flex items-center gap-1">
+                  <span className="animate-spin">⏳</span> Saving...
+                </span>
+              )}
+              <button
+                onClick={loadTasksFromStorage}
+                disabled={isLoading}
+                className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition flex items-center gap-2 disabled:opacity-50"
+                title="Refresh from Google Sheets"
+              >
+                {isLoading ? '⏳' : '🔄'} Sync
+              </button>
               <button
                 onClick={toggleDarkMode}
                 className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition flex items-center gap-2"
@@ -1720,10 +1747,15 @@ const DailyTaskTracker = () => {
 
             {/* Task List */}
             <div className="space-y-6 max-h-[600px] overflow-y-auto">
-              {filteredTasks.length === 0 ? (
+              {isLoading ? (
+                <div className="text-center py-12 text-gray-500">
+                  <div className="text-5xl mb-4 animate-spin">⏳</div>
+                  <p>Loading tasks from Google Sheets...</p>
+                </div>
+              ) : filteredTasks.length === 0 ? (
                 <div className="text-center py-12 text-gray-500">
                   <div className="text-5xl mb-4">📋</div>
-                  <p>No tasks yet. Add your first task above!</p>
+                  <p>No tasks yet. Add your first task below!</p>
                 </div>
               ) : (
                 groupedTasks.map(([sectionName, sectionTasks]) => (
