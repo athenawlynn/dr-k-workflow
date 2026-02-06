@@ -122,7 +122,7 @@ const DailyTaskTracker = () => {
 
   const addTask = async () => {
     if (!formData.description.trim()) { alert('Please enter a task description'); return; }
-    const newTask = { id: Date.now(), ...formData, completed: false, notes: "", carriedOver: false };
+    const newTask = { id: Date.now(), ...formData, completed: false, notesDrK: "", notesAthena: "", carriedOver: false };
     const updatedTasks = [...tasks, newTask];
     setTasks(updatedTasks);
     await saveTasksToStorage(updatedTasks);
@@ -143,8 +143,14 @@ const DailyTaskTracker = () => {
     }
   };
 
-  const updateTaskNotes = async (id, notes) => {
-    const updatedTasks = tasks.map(t => t.id === id ? { ...t, notes } : t);
+  // Updated to handle separate notes for Dr. K and Athena
+  const updateTaskNotes = async (id, noteType, value) => {
+    const updatedTasks = tasks.map(t => {
+      if (t.id === id) {
+        return { ...t, [noteType]: value };
+      }
+      return t;
+    });
     setTasks(updatedTasks);
     await saveTasksToStorage(updatedTasks);
   };
@@ -171,6 +177,13 @@ const DailyTaskTracker = () => {
   const cancelEditTask = () => {
     setEditingTaskId(null);
     setFormData({ category: 'Review', tag: 'Office', description: '', emailLink: '', urgent: false, attachments: [] });
+  };
+
+  // FIXED: Open email link function that works reliably
+  const openEmailLink = (url) => {
+    if (url && url.trim()) {
+      window.open(url.trim(), '_blank', 'noopener,noreferrer');
+    }
   };
 
   // Travel functions
@@ -266,8 +279,9 @@ const DailyTaskTracker = () => {
   };
 
   const renderDescriptionWithLinks = (text) => {
+    if (!text) return '';
     const urlRegex = /(https?:\/\/[^\s]+)/g;
-    return text.split(urlRegex).map((part, i) => part.match(urlRegex) ? <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline" onClick={e => e.stopPropagation()}>{part.length > 50 ? part.substring(0, 50) + '...' : part}</a> : part);
+    return text.split(urlRegex).map((part, i) => part.match(urlRegex) ? <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline break-all">{part.length > 50 ? part.substring(0, 50) + '...' : part}</a> : part);
   };
 
   const getBadgeClass = (type, value) => {
@@ -333,12 +347,20 @@ const DailyTaskTracker = () => {
                 <h3 className={`text-lg font-bold mb-2 ${darkMode ? 'text-indigo-300' : 'text-indigo-900'}`}>👥 Collaboration Tool</h3>
                 <p className={darkMode ? 'text-gray-300' : 'text-gray-700'}>This tracker allows <strong>both you and Dr. Koch</strong> to view and update tasks in real-time.</p>
               </div>
+              <div className={`border-l-4 border-green-500 p-6 rounded-r-lg ${darkMode ? 'bg-green-900' : 'bg-green-50'}`}>
+                <h3 className={`text-lg font-bold mb-2 ${darkMode ? 'text-green-300' : 'text-green-900'}`}>📝 Separate Notes</h3>
+                <p className={darkMode ? 'text-gray-300' : 'text-gray-700'}>Each task has <strong>two note sections</strong>:</p>
+                <ul className={`mt-2 space-y-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  <li>• <strong className="text-blue-600">Dr. K's Notes</strong> (blue) - For Dr. Koch's comments and instructions</li>
+                  <li>• <strong className="text-purple-600">Athena's Notes</strong> (purple) - For Athena's updates and context</li>
+                </ul>
+              </div>
               <div className={`rounded-lg p-6 ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
                 <h3 className="text-lg font-bold mb-4">🔘 Button Guide:</h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                   <div className="flex items-center gap-3"><span className="text-xl">✏️</span><span>Edit task</span></div>
                   <div className="flex items-center gap-3"><span className="text-xl">⚡</span><span>Toggle urgent</span></div>
-                  <div className="flex items-center gap-3"><span className="text-xl">💬</span><span>Add notes</span></div>
+                  <div className="flex items-center gap-3"><span className="text-xl">💬</span><span>Show/hide notes</span></div>
                   <div className="flex items-center gap-3"><span className="text-xl">○/✓</span><span>Complete</span></div>
                   <div className="flex items-center gap-3"><span className="text-xl">×</span><span>Delete</span></div>
                   <div className="flex items-center gap-3"><span className="text-xl">🔄</span><span>Sync data</span></div>
@@ -349,7 +371,7 @@ const DailyTaskTracker = () => {
                 <button onClick={generateRecap} className="w-full py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium mb-4">✨ Generate Daily Recap</button>
                 {recapText && (
                   <div className="space-y-3">
-                    <textarea value={recapText} onChange={(e) => setRecapText(e.target.value)} className="w-full min-h-64 px-4 py-3 border-2 border-indigo-300 rounded-lg text-sm font-mono bg-white" />
+                    <textarea value={recapText} onChange={(e) => setRecapText(e.target.value)} className="w-full min-h-64 px-4 py-3 border-2 border-indigo-300 rounded-lg text-sm font-mono bg-white text-gray-800" />
                     <div className="grid grid-cols-2 gap-3">
                       <button onClick={() => { navigator.clipboard.writeText(recapText); alert('Copied!'); }} className="py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 font-medium text-sm">📋 Copy</button>
                       <button onClick={() => window.open(`https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent('DAILY RECAP')}&body=${encodeURIComponent(recapText)}`, '_blank')} className="py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm">📧 Email</button>
@@ -409,17 +431,72 @@ const DailyTaskTracker = () => {
                                   {task.carriedOver && <span className="px-3 py-1 rounded-md text-xs font-semibold uppercase bg-orange-100 text-orange-800 border border-orange-300">📅 Carried Over</span>}
                                 </div>
                                 <div className="flex gap-2">
-                                  <button onClick={() => startEditTask(task)} className="w-7 h-7 bg-blue-100 hover:bg-blue-200 rounded-md flex items-center justify-center text-xs">✏️</button>
-                                  <button onClick={() => toggleUrgent(task.id)} className={`w-7 h-7 rounded-md flex items-center justify-center text-xs font-bold ${task.urgent ? 'bg-yellow-400 hover:bg-yellow-500' : 'bg-gray-100 hover:bg-gray-200'}`}>⚡</button>
-                                  <button onClick={() => setExpandedNotes({...expandedNotes, [task.id]: !expandedNotes[task.id]})} className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-md flex items-center justify-center text-xs">💬</button>
-                                  <button onClick={() => toggleComplete(task.id)} className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-md flex items-center justify-center">{task.completed ? '✓' : '○'}</button>
-                                  <button onClick={() => deleteTask(task.id)} className="w-7 h-7 bg-gray-100 hover:bg-gray-200 rounded-md flex items-center justify-center">×</button>
+                                  <button onClick={() => startEditTask(task)} className="w-7 h-7 bg-blue-100 hover:bg-blue-200 rounded-md flex items-center justify-center text-xs" title="Edit task">✏️</button>
+                                  <button onClick={() => toggleUrgent(task.id)} className={`w-7 h-7 rounded-md flex items-center justify-center text-xs font-bold ${task.urgent ? 'bg-yellow-400 hover:bg-yellow-500' : 'bg-gray-100 hover:bg-gray-200'}`} title="Toggle urgent">⚡</button>
+                                  <button onClick={() => setExpandedNotes({...expandedNotes, [task.id]: !expandedNotes[task.id]})} className={`w-7 h-7 rounded-md flex items-center justify-center text-xs ${expandedNotes[task.id] ? 'bg-purple-200' : 'bg-gray-100 hover:bg-gray-200'}`} title="Show/hide notes">💬</button>
+                                  <button onClick={() => toggleComplete(task.id)} className={`w-7 h-7 rounded-md flex items-center justify-center ${task.completed ? 'bg-green-200 text-green-800' : 'bg-gray-100 hover:bg-gray-200'}`} title="Mark complete">{task.completed ? '✓' : '○'}</button>
+                                  <button onClick={() => deleteTask(task.id)} className="w-7 h-7 bg-gray-100 hover:bg-red-100 hover:text-red-600 rounded-md flex items-center justify-center" title="Delete">×</button>
                                 </div>
                               </div>
                               <p className={`text-sm leading-relaxed mb-2 ${task.completed ? 'line-through' : ''}`}>{renderDescriptionWithLinks(task.description)}</p>
-                              {task.emailLink && <a href={task.emailLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold rounded-lg mt-2">📧 View Email</a>}
-                              {expandedNotes[task.id] && <div className="mt-3 pt-3 border-t"><label className="block text-xs font-semibold text-gray-600 uppercase mb-2">📝 Notes</label><textarea value={task.notes || ''} onChange={(e) => updateTaskNotes(task.id, e.target.value)} placeholder="Add notes..." className="w-full px-3 py-2 border rounded-lg text-sm min-h-20 bg-blue-50 border-blue-200" /></div>}
-                              {task.notes && !expandedNotes[task.id] && <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-900"><strong>💬</strong> {task.notes.substring(0, 60)}{task.notes.length > 60 ? '...' : ''}</div>}
+                              
+                              {/* FIXED: View Email Button - using onClick with window.open */}
+                              {task.emailLink && task.emailLink.trim() && (
+                                <button 
+                                  type="button"
+                                  onClick={() => openEmailLink(task.emailLink)}
+                                  className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold rounded-lg mt-2 cursor-pointer"
+                                >
+                                  📧 View Email
+                                </button>
+                              )}
+                              
+                              {/* Expanded Notes Section - SEPARATE NOTES FOR DR. K AND ATHENA */}
+                              {expandedNotes[task.id] && (
+                                <div className="mt-4 pt-4 border-t-2 border-gray-200 space-y-4">
+                                  {/* Dr. K's Notes - Blue theme */}
+                                  <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3">
+                                    <label className="block text-xs font-bold text-blue-800 uppercase mb-2 flex items-center gap-2">
+                                      👨‍⚕️ Dr. K's Notes
+                                    </label>
+                                    <textarea
+                                      value={task.notesDrK || task.notes || ''}
+                                      onChange={(e) => updateTaskNotes(task.id, 'notesDrK', e.target.value)}
+                                      placeholder="Dr. Koch: Add your comments, instructions, or feedback here..."
+                                      className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg text-sm min-h-16 bg-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                                    />
+                                  </div>
+                                  
+                                  {/* Athena's Notes - Purple theme */}
+                                  <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-3">
+                                    <label className="block text-xs font-bold text-purple-800 uppercase mb-2 flex items-center gap-2">
+                                      👩‍💼 Athena's Notes
+                                    </label>
+                                    <textarea
+                                      value={task.notesAthena || ''}
+                                      onChange={(e) => updateTaskNotes(task.id, 'notesAthena', e.target.value)}
+                                      placeholder="Athena: Add context, updates, or additional information here..."
+                                      className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg text-sm min-h-16 bg-white focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-200"
+                                    />
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {/* Show note previews when collapsed */}
+                              {!expandedNotes[task.id] && ((task.notesDrK || task.notes) || task.notesAthena) && (
+                                <div className="mt-2 space-y-1">
+                                  {(task.notesDrK || task.notes) && (
+                                    <div className="p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-900">
+                                      <strong>👨‍⚕️ Dr. K:</strong> {(task.notesDrK || task.notes).substring(0, 60)}{(task.notesDrK || task.notes).length > 60 ? '...' : ''}
+                                    </div>
+                                  )}
+                                  {task.notesAthena && (
+                                    <div className="p-2 bg-purple-50 border border-purple-200 rounded text-xs text-purple-900">
+                                      <strong>👩‍💼 Athena:</strong> {task.notesAthena.substring(0, 60)}{task.notesAthena.length > 60 ? '...' : ''}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                             </>
                           )}
                         </div>
