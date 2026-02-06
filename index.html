@@ -66,10 +66,29 @@ const DailyTaskTracker = () => {
 
   useEffect(() => { loadTasksFromStorage(); }, []);
 
+  // FIXED: Normalize tasks to ensure all fields exist
+  const normalizeTask = (task) => {
+    return {
+      id: task.id || Date.now(),
+      category: task.category || 'Review',
+      tag: task.tag || 'Office',
+      description: task.description || '',
+      emailLink: task.emailLink || '',
+      urgent: task.urgent || false,
+      completed: task.completed || false,
+      carriedOver: task.carriedOver || false,
+      notesDrK: task.notesDrK || task.notes || '',  // Migrate old notes to Dr. K's notes
+      notesAthena: task.notesAthena || '',
+      attachments: task.attachments || []
+    };
+  };
+
   const removeDuplicateTasks = (taskList) => {
+    if (!taskList || !Array.isArray(taskList)) return [];
     const seen = new Map();
     return taskList.filter(task => {
-      const key = task.category + '|' + task.tag + '|' + (task.description || '').substring(0, 100);
+      if (!task) return false;
+      const key = (task.category || '') + '|' + (task.tag || '') + '|' + (task.description || '').substring(0, 100);
       if (seen.has(key)) { console.log('Duplicate removed:', task.description?.substring(0, 40)); return false; }
       seen.set(key, true);
       return true;
@@ -82,10 +101,16 @@ const DailyTaskTracker = () => {
     try {
       const response = await fetch(SHEETS_API_URL + '?action=getTasks');
       const data = await response.json();
-      if (data.success && data.tasks && data.tasks.length > 0) {
-        const uniqueTasks = removeDuplicateTasks(data.tasks);
+      if (data.success && data.tasks && Array.isArray(data.tasks) && data.tasks.length > 0) {
+        // Normalize all tasks to ensure they have all required fields
+        const normalizedTasks = data.tasks.map(normalizeTask);
+        const uniqueTasks = removeDuplicateTasks(normalizedTasks);
         setTasks(uniqueTasks);
-      } else { setTasks([]); }
+        console.log('Loaded', uniqueTasks.length, 'tasks');
+      } else { 
+        setTasks([]); 
+        console.log('No tasks found or empty response');
+      }
     } catch (error) {
       console.error('Error loading tasks:', error);
       setSaveError('Failed to load. Click Sync to retry.');
@@ -100,7 +125,9 @@ const DailyTaskTracker = () => {
     }
     setIsSaving(true);
     setSaveError(null);
-    const cleanedTasks = removeDuplicateTasks(tasksToSave);
+    // Normalize before saving
+    const normalizedTasks = tasksToSave.map(normalizeTask);
+    const cleanedTasks = removeDuplicateTasks(normalizedTasks);
     try {
       localStorage.setItem('tasks-backup-latest', JSON.stringify(cleanedTasks));
     } catch (e) { console.log('Backup failed:', e); }
@@ -116,13 +143,22 @@ const DailyTaskTracker = () => {
 
   const restoreFromBackup = () => {
     const backup = localStorage.getItem('tasks-backup-latest');
-    if (backup) { setTasks(JSON.parse(backup)); alert('Restored from backup'); }
+    if (backup) { 
+      try {
+        const parsed = JSON.parse(backup);
+        const normalized = parsed.map(normalizeTask);
+        setTasks(normalized); 
+        alert('Restored from backup'); 
+      } catch(e) {
+        alert('Backup corrupted');
+      }
+    }
     else { alert('No backup found'); }
   };
 
   const addTask = async () => {
     if (!formData.description.trim()) { alert('Please enter a task description'); return; }
-    const newTask = { id: Date.now(), ...formData, completed: false, notesDrK: "", notesAthena: "", carriedOver: false };
+    const newTask = normalizeTask({ id: Date.now(), ...formData, completed: false, carriedOver: false });
     const updatedTasks = [...tasks, newTask];
     setTasks(updatedTasks);
     await saveTasksToStorage(updatedTasks);
@@ -163,7 +199,7 @@ const DailyTaskTracker = () => {
 
   const startEditTask = (task) => {
     setEditingTaskId(task.id);
-    setFormData({ category: task.category, tag: task.tag, description: task.description, emailLink: task.emailLink || '', urgent: task.urgent, attachments: task.attachments || [] });
+    setFormData({ category: task.category || 'Review', tag: task.tag || 'Office', description: task.description || '', emailLink: task.emailLink || '', urgent: task.urgent || false, attachments: task.attachments || [] });
   };
 
   const saveEditTask = async () => {
@@ -261,6 +297,7 @@ const DailyTaskTracker = () => {
   const groupTasksBySection = (taskList) => {
     const sections = { "THIS WEEK'S PROJECTS": [], "OFFICE RELATED": [], "FINANCE RELATED": [], "PERSONAL RELATED": [], "OTHER": [] };
     taskList.forEach(task => {
+      if (!task) return;
       if (task.tag === "This Week's Projects") sections["THIS WEEK'S PROJECTS"].push(task);
       else if (task.tag === 'Finance') sections["FINANCE RELATED"].push(task);
       else if (task.tag === 'Office') sections["OFFICE RELATED"].push(task);
@@ -426,8 +463,8 @@ const DailyTaskTracker = () => {
                             <>
                               <div className="flex justify-between items-start mb-2">
                                 <div className="flex gap-2 flex-wrap">
-                                  <span className={`px-3 py-1 rounded-md text-xs font-semibold uppercase ${getBadgeClass('category', task.category)}`}>{task.category}</span>
-                                  <span className={`px-3 py-1 rounded-md text-xs font-semibold uppercase ${getBadgeClass('tag', task.tag)}`}>{task.tag}</span>
+                                  <span className={`px-3 py-1 rounded-md text-xs font-semibold uppercase ${getBadgeClass('category', task.category)}`}>{task.category || 'Review'}</span>
+                                  <span className={`px-3 py-1 rounded-md text-xs font-semibold uppercase ${getBadgeClass('tag', task.tag)}`}>{task.tag || 'Office'}</span>
                                   {task.carriedOver && <span className="px-3 py-1 rounded-md text-xs font-semibold uppercase bg-orange-100 text-orange-800 border border-orange-300">📅 Carried Over</span>}
                                 </div>
                                 <div className="flex gap-2">
@@ -438,7 +475,7 @@ const DailyTaskTracker = () => {
                                   <button onClick={() => deleteTask(task.id)} className="w-7 h-7 bg-gray-100 hover:bg-red-100 hover:text-red-600 rounded-md flex items-center justify-center" title="Delete">×</button>
                                 </div>
                               </div>
-                              <p className={`text-sm leading-relaxed mb-2 ${task.completed ? 'line-through' : ''}`}>{renderDescriptionWithLinks(task.description)}</p>
+                              <p className={`text-sm leading-relaxed mb-2 ${task.completed ? 'line-through' : ''}`}>{renderDescriptionWithLinks(task.description || '')}</p>
                               
                               {/* FIXED: View Email Button - using onClick with window.open */}
                               {task.emailLink && task.emailLink.trim() && (
@@ -460,7 +497,7 @@ const DailyTaskTracker = () => {
                                       👨‍⚕️ Dr. K's Notes
                                     </label>
                                     <textarea
-                                      value={task.notesDrK || task.notes || ''}
+                                      value={task.notesDrK || ''}
                                       onChange={(e) => updateTaskNotes(task.id, 'notesDrK', e.target.value)}
                                       placeholder="Dr. Koch: Add your comments, instructions, or feedback here..."
                                       className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg text-sm min-h-16 bg-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
@@ -483,11 +520,11 @@ const DailyTaskTracker = () => {
                               )}
                               
                               {/* Show note previews when collapsed */}
-                              {!expandedNotes[task.id] && ((task.notesDrK || task.notes) || task.notesAthena) && (
+                              {!expandedNotes[task.id] && (task.notesDrK || task.notesAthena) && (
                                 <div className="mt-2 space-y-1">
-                                  {(task.notesDrK || task.notes) && (
+                                  {task.notesDrK && (
                                     <div className="p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-900">
-                                      <strong>👨‍⚕️ Dr. K:</strong> {(task.notesDrK || task.notes).substring(0, 60)}{(task.notesDrK || task.notes).length > 60 ? '...' : ''}
+                                      <strong>👨‍⚕️ Dr. K:</strong> {task.notesDrK.substring(0, 60)}{task.notesDrK.length > 60 ? '...' : ''}
                                     </div>
                                   )}
                                   {task.notesAthena && (
@@ -559,7 +596,7 @@ const DailyTaskTracker = () => {
                   {(() => {
                     let filtered = travelEntries;
                     if (travelTagFilter !== 'all') filtered = filtered.filter(e => e.tags?.includes(travelTagFilter));
-                    if (travelSearchQuery.trim()) { const q = travelSearchQuery.toLowerCase(); filtered = filtered.filter(e => e.description.toLowerCase().includes(q) || e.location.toLowerCase().includes(q) || e.confirmation.toLowerCase().includes(q)); }
+                    if (travelSearchQuery.trim()) { const q = travelSearchQuery.toLowerCase(); filtered = filtered.filter(e => (e.description || '').toLowerCase().includes(q) || (e.location || '').toLowerCase().includes(q) || (e.confirmation || '').toLowerCase().includes(q)); }
                     if (filtered.length === 0) return <tr><td colSpan="7" className="px-4 py-12 text-center text-gray-500"><div className="text-4xl mb-3">✈️</div><p>No travel entries found.</p></td></tr>;
                     return filtered.map(entry => {
                       const isUpcoming = new Date(entry.startDate) >= new Date();
