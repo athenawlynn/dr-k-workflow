@@ -27,19 +27,18 @@ const DailyTaskTracker = () => {
   const [editingTaskId, setEditingTaskId] = useState(null);
   const [recapText, setRecapText] = useState('');
   
-  // Travel state
   const [travelEntries, setTravelEntries] = useState([
     { id: 1, type: "Flight", description: "ATL to Memphis - Flight DL1700 Departs at 4:15 PM", startDate: "2026-02-26", endDate: "2026-02-26", location: "Memphis", confirmation: "#GX5JAV", url: "", tags: ["Flight"] },
     { id: 2, type: "Hotel", description: "Hilton Memphis Hotel", startDate: "2026-02-26", endDate: "2026-02-28", location: "Memphis", confirmation: "3395896664", url: "", tags: ["Hotel"] },
     { id: 3, type: "Course", description: "The Lifestyle Formula In-Person Course with Dr. Kyle Fagala", startDate: "2026-02-26", endDate: "2026-02-28", location: "Memphis", confirmation: "#135768106673", url: "", tags: ["Course", "Event"] },
     { id: 4, type: "Flight", description: "Memphis to ATL - Flight DL1693 Departs at 4:30", startDate: "2026-02-28", endDate: "2026-02-28", location: "Atlanta, GA", confirmation: "#GX5JAV", url: "", tags: ["Flight"] },
-    { id: 5, type: "Flight", description: "ATL to Phoenix Departs:", startDate: "2026-04-17", endDate: "2026-04-17", location: "TBD", confirmation: "TBD", url: "", tags: ["Flight"] },
-    { id: 6, type: "Event", description: "Nicole McFarlane Confirmed Registration Office Manager Workshop", startDate: "2026-04-17", endDate: "2026-04-18", location: "TBD", confirmation: "TBD", url: "", tags: ["Event", "Conference"] },
-    { id: 7, type: "Hotel", description: "Hotel", startDate: "2026-04-17", endDate: "2026-04-18", location: "TBD", confirmation: "TBD", url: "", tags: ["Hotel"] },
-    { id: 8, type: "Flight", description: "Phoenix to ATL Departs:", startDate: "2026-04-18", endDate: "2026-04-18", location: "TBD", confirmation: "TBD", url: "", tags: ["Flight"] },
-    { id: 9, type: "Event", description: "Transforming Lives with The Pitts21 Platform (Atlanta)", startDate: "2026-06-05", endDate: "2026-06-06", location: "Atlanta, GA", confirmation: "", url: "", tags: ["Event"] },
-    { id: 10, type: "Event", description: "Koch Family Reunion – Yellowstone 2026", startDate: "2026-06-20", endDate: "2026-06-27", location: "TBD", confirmation: "TBD", url: "", tags: ["Event"] },
-    { id: 11, type: "Flight", description: "? to ATL Departs:", startDate: "2026-06-27", endDate: "2026-06-27", location: "TBD", confirmation: "TBD", url: "", tags: ["Flight"] }
+    { id: 5, type: "Flight", description: "ATL to Phoenix", startDate: "2026-04-17", endDate: "2026-04-17", location: "TBD", confirmation: "TBD", url: "", tags: ["Flight"] },
+    { id: 6, type: "Event", description: "Nicole McFarlane - Office Manager Workshop", startDate: "2026-04-17", endDate: "2026-04-18", location: "Phoenix", confirmation: "TBD", url: "", tags: ["Event", "Conference"] },
+    { id: 7, type: "Hotel", description: "Phoenix Hotel", startDate: "2026-04-17", endDate: "2026-04-18", location: "Phoenix", confirmation: "TBD", url: "", tags: ["Hotel"] },
+    { id: 8, type: "Flight", description: "Phoenix to ATL", startDate: "2026-04-18", endDate: "2026-04-18", location: "TBD", confirmation: "TBD", url: "", tags: ["Flight"] },
+    { id: 9, type: "Event", description: "Transforming Lives with The Pitts21 Platform", startDate: "2026-06-05", endDate: "2026-06-06", location: "Atlanta, GA", confirmation: "", url: "", tags: ["Event"] },
+    { id: 10, type: "Event", description: "Koch Family Reunion – Yellowstone 2026", startDate: "2026-06-20", endDate: "2026-06-27", location: "Yellowstone", confirmation: "TBD", url: "", tags: ["Event"] },
+    { id: 11, type: "Flight", description: "Return to ATL from Yellowstone", startDate: "2026-06-27", endDate: "2026-06-27", location: "TBD", confirmation: "TBD", url: "", tags: ["Flight"] }
   ]);
   const [travelForm, setTravelForm] = useState({ type: 'Flight', description: '', startDate: '', endDate: '', location: '', confirmation: '', url: '', tags: [] });
   const [editingTravelId, setEditingTravelId] = useState(null);
@@ -66,20 +65,27 @@ const DailyTaskTracker = () => {
 
   useEffect(() => { loadTasksFromStorage(); }, []);
 
-  // FIXED: Normalize tasks to ensure all fields exist
+  // FIXED: Safely get string value (handles booleans, nulls, etc)
+  const safeString = (val) => {
+    if (val === null || val === undefined || val === true || val === false) return '';
+    return String(val);
+  };
+
+  // FIXED: Normalize tasks to ensure all fields exist and are correct types
   const normalizeTask = (task) => {
+    if (!task) return null;
     return {
       id: task.id || Date.now(),
-      category: task.category || 'Review',
-      tag: task.tag || 'Office',
-      description: task.description || '',
-      emailLink: task.emailLink || '',
-      urgent: task.urgent || false,
-      completed: task.completed || false,
-      carriedOver: task.carriedOver || false,
-      notesDrK: task.notesDrK || task.notes || '',  // Migrate old notes to Dr. K's notes
-      notesAthena: task.notesAthena || '',
-      attachments: task.attachments || []
+      category: safeString(task.category) || 'Review',
+      tag: safeString(task.tag) || 'Office',
+      description: safeString(task.description),
+      emailLink: safeString(task.emailLink),  // FIX: converts true/false to empty string
+      urgent: Boolean(task.urgent),
+      completed: Boolean(task.completed),
+      carriedOver: Boolean(task.carriedOver),
+      notesDrK: safeString(task.notesDrK) || safeString(task.notes),
+      notesAthena: safeString(task.notesAthena),
+      attachments: Array.isArray(task.attachments) ? task.attachments : []
     };
   };
 
@@ -88,8 +94,9 @@ const DailyTaskTracker = () => {
     const seen = new Map();
     return taskList.filter(task => {
       if (!task) return false;
-      const key = (task.category || '') + '|' + (task.tag || '') + '|' + (task.description || '').substring(0, 100);
-      if (seen.has(key)) { console.log('Duplicate removed:', task.description?.substring(0, 40)); return false; }
+      const desc = safeString(task.description);
+      const key = safeString(task.category) + '|' + safeString(task.tag) + '|' + desc.substring(0, 100);
+      if (seen.has(key)) return false;
       seen.set(key, true);
       return true;
     });
@@ -102,35 +109,26 @@ const DailyTaskTracker = () => {
       const response = await fetch(SHEETS_API_URL + '?action=getTasks');
       const data = await response.json();
       if (data.success && data.tasks && Array.isArray(data.tasks) && data.tasks.length > 0) {
-        // Normalize all tasks to ensure they have all required fields
-        const normalizedTasks = data.tasks.map(normalizeTask);
+        const normalizedTasks = data.tasks.map(normalizeTask).filter(t => t !== null);
         const uniqueTasks = removeDuplicateTasks(normalizedTasks);
         setTasks(uniqueTasks);
-        console.log('Loaded', uniqueTasks.length, 'tasks');
       } else { 
         setTasks([]); 
-        console.log('No tasks found or empty response');
       }
     } catch (error) {
-      console.error('Error loading tasks:', error);
-      setSaveError('Failed to load. Click Sync to retry.');
+      console.error('Load error:', error);
+      setSaveError('Failed to load. Click Sync.');
       setTasks([]);
     } finally { setIsLoading(false); }
   };
 
   const saveTasksToStorage = async (tasksToSave) => {
-    if (!tasksToSave || tasksToSave.length === 0) {
-      console.log('No tasks to save - skipping to prevent data loss');
-      return { success: false };
-    }
+    if (!tasksToSave || tasksToSave.length === 0) return { success: false };
     setIsSaving(true);
     setSaveError(null);
-    // Normalize before saving
-    const normalizedTasks = tasksToSave.map(normalizeTask);
+    const normalizedTasks = tasksToSave.map(normalizeTask).filter(t => t !== null);
     const cleanedTasks = removeDuplicateTasks(normalizedTasks);
-    try {
-      localStorage.setItem('tasks-backup-latest', JSON.stringify(cleanedTasks));
-    } catch (e) { console.log('Backup failed:', e); }
+    try { localStorage.setItem('tasks-backup-latest', JSON.stringify(cleanedTasks)); } catch (e) {}
     try {
       await fetch(SHEETS_API_URL, { method: 'POST', redirect: 'follow', body: JSON.stringify(cleanedTasks) });
       setLastSaveTime(new Date().toLocaleTimeString());
@@ -146,14 +144,11 @@ const DailyTaskTracker = () => {
     if (backup) { 
       try {
         const parsed = JSON.parse(backup);
-        const normalized = parsed.map(normalizeTask);
+        const normalized = parsed.map(normalizeTask).filter(t => t !== null);
         setTasks(normalized); 
         alert('Restored from backup'); 
-      } catch(e) {
-        alert('Backup corrupted');
-      }
-    }
-    else { alert('No backup found'); }
+      } catch(e) { alert('Backup corrupted'); }
+    } else { alert('No backup found'); }
   };
 
   const addTask = async () => {
@@ -179,14 +174,8 @@ const DailyTaskTracker = () => {
     }
   };
 
-  // Updated to handle separate notes for Dr. K and Athena
   const updateTaskNotes = async (id, noteType, value) => {
-    const updatedTasks = tasks.map(t => {
-      if (t.id === id) {
-        return { ...t, [noteType]: value };
-      }
-      return t;
-    });
+    const updatedTasks = tasks.map(t => t.id === id ? { ...t, [noteType]: value } : t);
     setTasks(updatedTasks);
     await saveTasksToStorage(updatedTasks);
   };
@@ -199,7 +188,14 @@ const DailyTaskTracker = () => {
 
   const startEditTask = (task) => {
     setEditingTaskId(task.id);
-    setFormData({ category: task.category || 'Review', tag: task.tag || 'Office', description: task.description || '', emailLink: task.emailLink || '', urgent: task.urgent || false, attachments: task.attachments || [] });
+    setFormData({ 
+      category: safeString(task.category) || 'Review', 
+      tag: safeString(task.tag) || 'Office', 
+      description: safeString(task.description), 
+      emailLink: safeString(task.emailLink), 
+      urgent: Boolean(task.urgent), 
+      attachments: task.attachments || [] 
+    });
   };
 
   const saveEditTask = async () => {
@@ -215,25 +211,22 @@ const DailyTaskTracker = () => {
     setFormData({ category: 'Review', tag: 'Office', description: '', emailLink: '', urgent: false, attachments: [] });
   };
 
-  // FIXED: Open email link function that works reliably
   const openEmailLink = (url) => {
-    if (url && url.trim()) {
-      window.open(url.trim(), '_blank', 'noopener,noreferrer');
+    const link = safeString(url);
+    if (link && link.startsWith('http')) {
+      window.open(link, '_blank', 'noopener,noreferrer');
     }
   };
 
   // Travel functions
   const addTravelEntry = () => {
     if (!travelForm.description || !travelForm.startDate) { alert('Please enter description and start date'); return; }
-    const newEntry = { id: Date.now(), ...travelForm };
-    setTravelEntries([...travelEntries, newEntry].sort((a, b) => new Date(a.startDate) - new Date(b.startDate)));
+    setTravelEntries([...travelEntries, { id: Date.now(), ...travelForm }].sort((a, b) => new Date(a.startDate) - new Date(b.startDate)));
     setTravelForm({ type: 'Flight', description: '', startDate: '', endDate: '', location: '', confirmation: '', url: '', tags: [] });
   };
 
   const deleteTravelEntry = (id) => {
-    if (window.confirm('Delete this travel entry?')) {
-      setTravelEntries(travelEntries.filter(e => e.id !== id));
-    }
+    if (window.confirm('Delete this travel entry?')) setTravelEntries(travelEntries.filter(e => e.id !== id));
   };
 
   const startEditTravel = (entry) => {
@@ -257,38 +250,27 @@ const DailyTaskTracker = () => {
     return travelEntries.filter(entry => {
       const startDate = new Date(entry.startDate); startDate.setHours(0, 0, 0, 0);
       const daysUntil = Math.ceil((startDate - today) / (1000 * 60 * 60 * 24));
-      return daysUntil >= 0 && daysUntil <= 7;
+      return daysUntil >= 0 && daysUntil <= 14;
     }).map(entry => {
       const startDate = new Date(entry.startDate); startDate.setHours(0, 0, 0, 0);
-      const daysUntil = Math.ceil((startDate - new Date().setHours(0,0,0,0)) / (1000 * 60 * 60 * 24));
-      return { ...entry, daysUntil };
+      return { ...entry, daysUntil: Math.ceil((startDate - today) / (1000 * 60 * 60 * 24)) };
     });
   };
 
-  const toggleDarkMode = () => { const newMode = !darkMode; setDarkMode(newMode); localStorage.setItem('darkMode', newMode.toString()); };
+  const toggleDarkMode = () => { setDarkMode(d => { localStorage.setItem('darkMode', (!d).toString()); return !d; }); };
 
   const generateRecap = () => {
-    if (tasks.length === 0) { alert('No tasks to generate recap from.'); return; }
-    const sections = {
-      "OFFICE": tasks.filter(t => t.tag === 'Office'),
-      "FINANCE": tasks.filter(t => t.tag === 'Finance'),
-      "PERSONAL": tasks.filter(t => t.tag === 'Personal'),
-      "THIS WEEK'S PROJECTS": tasks.filter(t => t.tag === "This Week's Projects"),
-      "OTHER": tasks.filter(t => t.tag === 'Other')
-    };
-    const dateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-    let recap = `Hello Dr. Koch, here is your DAILY RECAP – ${dateStr}\n\n`;
-    Object.entries(sections).forEach(([sectionName, sectionTasks]) => {
-      if (sectionTasks.length > 0) {
-        recap += `${sectionName}-RELATED ITEMS\n`;
-        const actionRequired = sectionTasks.filter(t => ['Respond', 'Sign', 'Approve', 'PAY'].includes(t.category) && !t.completed);
-        const review = sectionTasks.filter(t => t.category === 'Review' && !t.completed);
-        if (actionRequired.length > 0) { recap += `\nAction Required:\n`; actionRequired.forEach(t => { recap += `• [${t.category}] ${t.description}\n`; }); }
-        if (review.length > 0) { recap += `\nFor Review:\n`; review.forEach(t => { recap += `• ${t.description}\n`; }); }
+    if (tasks.length === 0) { alert('No tasks to recap.'); return; }
+    const sections = { "OFFICE": tasks.filter(t => t.tag === 'Office'), "FINANCE": tasks.filter(t => t.tag === 'Finance'), "PERSONAL": tasks.filter(t => t.tag === 'Personal'), "THIS WEEK'S PROJECTS": tasks.filter(t => t.tag === "This Week's Projects"), "OTHER": tasks.filter(t => !['Office','Finance','Personal',"This Week's Projects"].includes(t.tag)) };
+    let recap = `DAILY RECAP – ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}\n\n`;
+    Object.entries(sections).forEach(([name, items]) => {
+      if (items.length > 0) {
+        recap += `${name}\n`;
+        items.filter(t => !t.completed).forEach(t => { recap += `• [${t.category}] ${t.description.substring(0,100)}${t.description.length > 100 ? '...' : ''}\n`; });
         recap += `\n`;
       }
     });
-    recap += `---\nTotal: ${tasks.length} | Completed: ${tasks.filter(t => t.completed).length} | Remaining: ${tasks.filter(t => !t.completed).length}`;
+    recap += `---\nTotal: ${tasks.length} | Done: ${tasks.filter(t => t.completed).length} | Remaining: ${tasks.filter(t => !t.completed).length}`;
     setRecapText(recap);
   };
 
@@ -298,27 +280,31 @@ const DailyTaskTracker = () => {
     const sections = { "THIS WEEK'S PROJECTS": [], "OFFICE RELATED": [], "FINANCE RELATED": [], "PERSONAL RELATED": [], "OTHER": [] };
     taskList.forEach(task => {
       if (!task) return;
-      if (task.tag === "This Week's Projects") sections["THIS WEEK'S PROJECTS"].push(task);
-      else if (task.tag === 'Finance') sections["FINANCE RELATED"].push(task);
-      else if (task.tag === 'Office') sections["OFFICE RELATED"].push(task);
-      else if (task.tag === 'Personal') sections["PERSONAL RELATED"].push(task);
+      const tag = safeString(task.tag);
+      if (tag === "This Week's Projects") sections["THIS WEEK'S PROJECTS"].push(task);
+      else if (tag === 'Finance') sections["FINANCE RELATED"].push(task);
+      else if (tag === 'Office') sections["OFFICE RELATED"].push(task);
+      else if (tag === 'Personal') sections["PERSONAL RELATED"].push(task);
       else sections["OTHER"].push(task);
     });
-    return Object.entries(sections).filter(([_, tasks]) => tasks.length > 0);
+    return Object.entries(sections).filter(([_, t]) => t.length > 0);
   };
 
-  const getSectionColor = (sectionName) => {
-    if (sectionName.includes("WEEK'S PROJECTS")) return 'bg-gradient-to-r from-rose-600 to-pink-500';
-    if (sectionName.includes('FINANCE')) return 'bg-gradient-to-r from-purple-600 to-purple-500';
-    if (sectionName.includes('OFFICE')) return 'bg-gradient-to-r from-blue-600 to-blue-500';
-    if (sectionName.includes('PERSONAL')) return 'bg-gradient-to-r from-orange-600 to-orange-500';
+  const getSectionColor = (name) => {
+    if (name.includes("WEEK'S PROJECTS")) return 'bg-gradient-to-r from-rose-600 to-pink-500';
+    if (name.includes('FINANCE')) return 'bg-gradient-to-r from-purple-600 to-purple-500';
+    if (name.includes('OFFICE')) return 'bg-gradient-to-r from-blue-600 to-blue-500';
+    if (name.includes('PERSONAL')) return 'bg-gradient-to-r from-orange-600 to-orange-500';
     return 'bg-gradient-to-r from-gray-600 to-gray-500';
   };
 
-  const renderDescriptionWithLinks = (text) => {
-    if (!text) return '';
+  const renderDescription = (text) => {
+    const str = safeString(text);
+    if (!str) return '';
     const urlRegex = /(https?:\/\/[^\s]+)/g;
-    return text.split(urlRegex).map((part, i) => part.match(urlRegex) ? <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline break-all">{part.length > 50 ? part.substring(0, 50) + '...' : part}</a> : part);
+    return str.split(urlRegex).map((part, i) => 
+      part.match(urlRegex) ? <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline break-all">{part.length > 40 ? part.substring(0, 40) + '...' : part}</a> : part
+    );
   };
 
   const getBadgeClass = (type, value) => {
@@ -329,18 +315,18 @@ const DailyTaskTracker = () => {
     return classes[type]?.[value] || 'bg-gray-100 text-gray-700';
   };
 
-  const inspirationalQuotes = [
+  const quotes = [
     { quote: "Feeling is the prayer.", author: "Gregg Braden" },
     { quote: "Change the way you look at things and the things you look at change.", author: "Wayne Dyer" },
     { quote: "Where focus goes, energy flows.", author: "Tony Robbins" },
     { quote: "Assume the feeling of your wish fulfilled.", author: "Neville Goddard" },
     { quote: "The basis of your life is absolute freedom, the goal is joy.", author: "Esther Hicks" }
   ];
-  const dailyQuote = inspirationalQuotes[new Date().getDay() % inspirationalQuotes.length];
+  const dailyQuote = quotes[new Date().getDay() % quotes.length];
   const groupedTasks = groupTasksBySection(filteredTasks);
 
   return (
-    <div className={`min-h-screen p-4 transition-colors ${darkMode ? 'bg-gradient-to-br from-gray-900 to-gray-800' : 'bg-gradient-to-br from-indigo-600 to-purple-700'}`}>
+    <div className={`min-h-screen p-4 ${darkMode ? 'bg-gradient-to-br from-gray-900 to-gray-800' : 'bg-gradient-to-br from-indigo-600 to-purple-700'}`}>
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className={`rounded-2xl shadow-2xl p-6 mb-6 ${darkMode ? 'bg-gray-800 text-white' : 'bg-white'}`}>
@@ -354,184 +340,126 @@ const DailyTaskTracker = () => {
               </div>
             </div>
             <div className="flex gap-3 items-center flex-wrap">
-              {isSaving && <span className="text-sm text-yellow-600 flex items-center gap-1"><span className="animate-spin">⏳</span> Saving...</span>}
+              {isSaving && <span className="text-sm text-yellow-600">⏳ Saving...</span>}
               {lastSaveTime && !isSaving && !saveError && <span className="text-xs text-green-600">✓ Saved {lastSaveTime}</span>}
-              {saveError && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-red-600">⚠️ {saveError}</span>
-                  <button onClick={() => saveTasksToStorage(tasks)} className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200">Retry</button>
-                  <button onClick={restoreFromBackup} className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200">Restore</button>
-                </div>
-              )}
-              <button onClick={loadTasksFromStorage} disabled={isLoading} className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition flex items-center gap-2 disabled:opacity-50">{isLoading ? '⏳' : '🔄'} Sync</button>
-              <button onClick={toggleDarkMode} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition">{darkMode ? '☀️ Light' : '🌙 Dark'}</button>
+              {saveError && <span className="text-xs text-red-600">⚠️ {saveError}</span>}
+              <button onClick={loadTasksFromStorage} disabled={isLoading} className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50">{isLoading ? '⏳' : '🔄'} Sync</button>
+              <button onClick={toggleDarkMode} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">{darkMode ? '☀️' : '🌙'}</button>
             </div>
           </div>
-          {/* Tabs */}
           <div className="flex gap-2 mt-6 border-b-2">
-            <button onClick={() => setActiveSection('tasks')} className={`px-6 py-3 font-semibold transition relative ${activeSection === 'tasks' ? 'text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}>📋 Today's Tasks{activeSection === 'tasks' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600"></div>}</button>
-            <button onClick={() => setActiveSection('travel')} className={`px-6 py-3 font-semibold transition relative ${activeSection === 'travel' ? 'text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}>✈️ Travel{activeSection === 'travel' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600"></div>}</button>
-            <button onClick={() => setActiveSection('instructions')} className={`px-6 py-3 font-semibold transition relative ${activeSection === 'instructions' ? 'text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}>📖 Instructions{activeSection === 'instructions' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600"></div>}</button>
+            {[['tasks', '📋 Tasks'], ['travel', '✈️ Travel'], ['instructions', '📖 Help']].map(([key, label]) => (
+              <button key={key} onClick={() => setActiveSection(key)} className={`px-6 py-3 font-semibold relative ${activeSection === key ? 'text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}>
+                {label}{activeSection === key && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600"></div>}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Instructions Section */}
+        {/* Instructions */}
         {activeSection === 'instructions' && (
           <div className={`rounded-2xl shadow-2xl p-8 ${darkMode ? 'bg-gray-800 text-white' : 'bg-white'}`}>
-            <h2 className={`text-3xl font-serif font-bold mb-6 ${darkMode ? 'text-white' : 'text-indigo-900'}`}>How to Use Dr. K Workflow</h2>
-            <div className="space-y-6">
-              <div className={`border-l-4 border-indigo-600 p-6 rounded-r-lg ${darkMode ? 'bg-indigo-900' : 'bg-indigo-50'}`}>
-                <h3 className={`text-lg font-bold mb-2 ${darkMode ? 'text-indigo-300' : 'text-indigo-900'}`}>👥 Collaboration Tool</h3>
-                <p className={darkMode ? 'text-gray-300' : 'text-gray-700'}>This tracker allows <strong>both you and Dr. Koch</strong> to view and update tasks in real-time.</p>
+            <h2 className="text-2xl font-bold mb-6">How to Use</h2>
+            <div className="space-y-4">
+              <div className="p-4 bg-blue-50 border-l-4 border-blue-500 rounded-r-lg">
+                <h3 className="font-bold text-blue-900">📝 Separate Notes</h3>
+                <p className="text-blue-800 mt-1">Each task has two note areas: <strong className="text-blue-600">Dr. K's Notes</strong> (blue) and <strong className="text-purple-600">Athena's Notes</strong> (purple)</p>
               </div>
-              <div className={`border-l-4 border-green-500 p-6 rounded-r-lg ${darkMode ? 'bg-green-900' : 'bg-green-50'}`}>
-                <h3 className={`text-lg font-bold mb-2 ${darkMode ? 'text-green-300' : 'text-green-900'}`}>📝 Separate Notes</h3>
-                <p className={darkMode ? 'text-gray-300' : 'text-gray-700'}>Each task has <strong>two note sections</strong>:</p>
-                <ul className={`mt-2 space-y-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  <li>• <strong className="text-blue-600">Dr. K's Notes</strong> (blue) - For Dr. Koch's comments and instructions</li>
-                  <li>• <strong className="text-purple-600">Athena's Notes</strong> (purple) - For Athena's updates and context</li>
-                </ul>
-              </div>
-              <div className={`rounded-lg p-6 ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                <h3 className="text-lg font-bold mb-4">🔘 Button Guide:</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-                  <div className="flex items-center gap-3"><span className="text-xl">✏️</span><span>Edit task</span></div>
-                  <div className="flex items-center gap-3"><span className="text-xl">⚡</span><span>Toggle urgent</span></div>
-                  <div className="flex items-center gap-3"><span className="text-xl">💬</span><span>Show/hide notes</span></div>
-                  <div className="flex items-center gap-3"><span className="text-xl">○/✓</span><span>Complete</span></div>
-                  <div className="flex items-center gap-3"><span className="text-xl">×</span><span>Delete</span></div>
-                  <div className="flex items-center gap-3"><span className="text-xl">🔄</span><span>Sync data</span></div>
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <h3 className="font-bold mb-2">Button Guide:</h3>
+                <div className="grid grid-cols-3 gap-2 text-sm">
+                  <span>✏️ Edit</span><span>⚡ Urgent</span><span>💬 Notes</span>
+                  <span>○/✓ Complete</span><span>× Delete</span><span>🔄 Sync</span>
                 </div>
               </div>
-              <div className={`border-l-4 border-indigo-500 p-6 rounded-r-lg ${darkMode ? 'bg-indigo-900' : 'bg-indigo-50'}`}>
-                <h3 className={`text-lg font-bold mb-3 ${darkMode ? 'text-indigo-300' : 'text-indigo-900'}`}>✨ Daily Recap Tool</h3>
-                <button onClick={generateRecap} className="w-full py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium mb-4">✨ Generate Daily Recap</button>
-                {recapText && (
-                  <div className="space-y-3">
-                    <textarea value={recapText} onChange={(e) => setRecapText(e.target.value)} className="w-full min-h-64 px-4 py-3 border-2 border-indigo-300 rounded-lg text-sm font-mono bg-white text-gray-800" />
-                    <div className="grid grid-cols-2 gap-3">
-                      <button onClick={() => { navigator.clipboard.writeText(recapText); alert('Copied!'); }} className="py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 font-medium text-sm">📋 Copy</button>
-                      <button onClick={() => window.open(`https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent('DAILY RECAP')}&body=${encodeURIComponent(recapText)}`, '_blank')} className="py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm">📧 Email</button>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div className="text-center pt-4">
-                <button onClick={() => setActiveSection('tasks')} className="px-8 py-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold text-lg shadow-lg">🚀 Go to Tasks</button>
-              </div>
+              <button onClick={generateRecap} className="w-full py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium">✨ Generate Daily Recap</button>
+              {recapText && (
+                <div className="space-y-3">
+                  <textarea value={recapText} onChange={(e) => setRecapText(e.target.value)} className="w-full min-h-48 p-3 border rounded-lg text-sm font-mono" />
+                  <button onClick={() => { navigator.clipboard.writeText(recapText); alert('Copied!'); }} className="w-full py-2 bg-amber-500 text-white rounded-lg">📋 Copy</button>
+                </div>
+              )}
             </div>
           </div>
         )}
 
-        {/* Tasks Section */}
+        {/* Tasks */}
         {activeSection === 'tasks' && (
           <div className={`rounded-2xl shadow-2xl p-6 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
             <h2 className={`text-2xl font-serif font-bold mb-6 pb-4 border-b-2 ${darkMode ? 'text-white border-gray-600' : 'text-indigo-900 border-gray-200'}`}>Today's Tasks</h2>
+            
             <div className="flex flex-wrap gap-2 mb-4">
-              {['all', 'Review', 'Sign', 'Respond', 'No Action Needed', 'PAY', 'Hold'].map(filter => (
-                <button key={filter} onClick={() => setCurrentFilter(filter)} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${currentFilter === filter ? 'bg-indigo-600 text-white' : darkMode ? 'bg-gray-700 text-gray-300' : 'bg-white border hover:bg-gray-50'}`}>{filter === 'all' ? 'All' : filter}</button>
+              {['all', 'Review', 'Sign', 'Respond', 'No Action Needed', 'PAY', 'Hold'].map(f => (
+                <button key={f} onClick={() => setCurrentFilter(f)} className={`px-4 py-2 rounded-lg text-sm font-medium ${currentFilter === f ? 'bg-indigo-600 text-white' : darkMode ? 'bg-gray-700 text-gray-300' : 'bg-white border hover:bg-gray-50'}`}>{f === 'all' ? 'All' : f}</button>
               ))}
             </div>
+
             <div className="space-y-6">
               {isLoading ? (
-                <div className="text-center py-12 text-gray-500"><div className="text-5xl mb-4 animate-spin">⏳</div><p>Loading tasks...</p></div>
+                <div className="text-center py-12"><div className="text-5xl mb-4">⏳</div><p>Loading...</p></div>
               ) : filteredTasks.length === 0 ? (
-                <div className="text-center py-12 text-gray-500"><div className="text-5xl mb-4">📋</div><p>No tasks yet.</p></div>
+                <div className="text-center py-12"><div className="text-5xl mb-4">📋</div><p>No tasks</p></div>
               ) : (
                 groupedTasks.map(([sectionName, sectionTasks]) => (
-                  <div key={sectionName} className="mb-6">
-                    <div className={`${getSectionColor(sectionName)} text-white px-4 py-3 rounded-t-lg font-bold text-sm uppercase tracking-wide shadow-md`}>{sectionName}</div>
+                  <div key={sectionName}>
+                    <div className={`${getSectionColor(sectionName)} text-white px-4 py-3 rounded-t-lg font-bold text-sm uppercase`}>{sectionName}</div>
                     <div className="space-y-3 bg-gray-50 p-4 rounded-b-lg border border-t-0">
                       {sectionTasks.map(task => (
-                        <div key={task.id} className={`border rounded-xl p-4 transition ${editingTaskId === task.id ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-300' : task.urgent ? 'bg-yellow-50 border-yellow-400' : 'bg-white'} ${task.completed ? 'opacity-60' : ''}`}>
+                        <div key={task.id} className={`border rounded-xl p-4 ${editingTaskId === task.id ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-300' : task.urgent ? 'bg-yellow-50 border-yellow-400' : 'bg-white'} ${task.completed ? 'opacity-60' : ''}`}>
                           {editingTaskId === task.id ? (
                             <div className="space-y-3">
-                              <div className="flex justify-between items-center mb-2"><span className="text-sm font-bold text-blue-700">✏️ Editing</span><button onClick={cancelEditTask} className="text-gray-500 hover:text-gray-700 text-lg">✕</button></div>
+                              <div className="flex justify-between"><span className="font-bold text-blue-700">✏️ Editing</span><button onClick={cancelEditTask}>✕</button></div>
                               <div className="grid grid-cols-2 gap-2">
                                 <select value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})} className="px-2 py-1.5 border rounded text-sm"><option>Review</option><option>Sign</option><option>Respond</option><option>No Action Needed</option><option>PAY</option><option>Hold</option></select>
                                 <select value={formData.tag} onChange={(e) => setFormData({...formData, tag: e.target.value})} className="px-2 py-1.5 border rounded text-sm"><option>This Week's Projects</option><option>Office</option><option>Finance</option><option>Personal</option><option>Other</option></select>
                               </div>
                               <textarea value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} className="w-full px-3 py-2 border rounded text-sm min-h-24" />
-                              <input type="text" value={formData.emailLink} onChange={(e) => setFormData({...formData, emailLink: e.target.value})} placeholder="Email link" className="w-full px-3 py-2 border rounded text-sm" />
-                              <div className="flex items-center gap-2"><input type="checkbox" checked={formData.urgent} onChange={(e) => setFormData({...formData, urgent: e.target.checked})} className="w-4 h-4" /><label className="text-sm">Urgent</label></div>
-                              <div className="flex gap-2 pt-2">
-                                <button onClick={saveEditTask} className="flex-1 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-medium text-sm">✓ Save</button>
-                                <button onClick={cancelEditTask} className="flex-1 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 font-medium text-sm">Cancel</button>
+                              <input type="text" value={formData.emailLink} onChange={(e) => setFormData({...formData, emailLink: e.target.value})} placeholder="Email link (URL)" className="w-full px-3 py-2 border rounded text-sm" />
+                              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={formData.urgent} onChange={(e) => setFormData({...formData, urgent: e.target.checked})} /> Urgent</label>
+                              <div className="flex gap-2">
+                                <button onClick={saveEditTask} className="flex-1 py-2 bg-blue-500 text-white rounded-lg">✓ Save</button>
+                                <button onClick={cancelEditTask} className="flex-1 py-2 bg-gray-300 rounded-lg">Cancel</button>
                               </div>
                             </div>
                           ) : (
                             <>
                               <div className="flex justify-between items-start mb-2">
                                 <div className="flex gap-2 flex-wrap">
-                                  <span className={`px-3 py-1 rounded-md text-xs font-semibold uppercase ${getBadgeClass('category', task.category)}`}>{task.category || 'Review'}</span>
-                                  <span className={`px-3 py-1 rounded-md text-xs font-semibold uppercase ${getBadgeClass('tag', task.tag)}`}>{task.tag || 'Office'}</span>
-                                  {task.carriedOver && <span className="px-3 py-1 rounded-md text-xs font-semibold uppercase bg-orange-100 text-orange-800 border border-orange-300">📅 Carried Over</span>}
+                                  <span className={`px-3 py-1 rounded-md text-xs font-semibold uppercase ${getBadgeClass('category', task.category)}`}>{task.category}</span>
+                                  <span className={`px-3 py-1 rounded-md text-xs font-semibold uppercase ${getBadgeClass('tag', task.tag)}`}>{task.tag}</span>
+                                  {task.carriedOver && <span className="px-3 py-1 rounded-md text-xs font-semibold bg-orange-100 text-orange-800">📅 Carried</span>}
                                 </div>
-                                <div className="flex gap-2">
-                                  <button onClick={() => startEditTask(task)} className="w-7 h-7 bg-blue-100 hover:bg-blue-200 rounded-md flex items-center justify-center text-xs" title="Edit task">✏️</button>
-                                  <button onClick={() => toggleUrgent(task.id)} className={`w-7 h-7 rounded-md flex items-center justify-center text-xs font-bold ${task.urgent ? 'bg-yellow-400 hover:bg-yellow-500' : 'bg-gray-100 hover:bg-gray-200'}`} title="Toggle urgent">⚡</button>
-                                  <button onClick={() => setExpandedNotes({...expandedNotes, [task.id]: !expandedNotes[task.id]})} className={`w-7 h-7 rounded-md flex items-center justify-center text-xs ${expandedNotes[task.id] ? 'bg-purple-200' : 'bg-gray-100 hover:bg-gray-200'}`} title="Show/hide notes">💬</button>
-                                  <button onClick={() => toggleComplete(task.id)} className={`w-7 h-7 rounded-md flex items-center justify-center ${task.completed ? 'bg-green-200 text-green-800' : 'bg-gray-100 hover:bg-gray-200'}`} title="Mark complete">{task.completed ? '✓' : '○'}</button>
-                                  <button onClick={() => deleteTask(task.id)} className="w-7 h-7 bg-gray-100 hover:bg-red-100 hover:text-red-600 rounded-md flex items-center justify-center" title="Delete">×</button>
+                                <div className="flex gap-1">
+                                  <button onClick={() => startEditTask(task)} className="w-7 h-7 bg-blue-100 hover:bg-blue-200 rounded flex items-center justify-center text-xs">✏️</button>
+                                  <button onClick={() => toggleUrgent(task.id)} className={`w-7 h-7 rounded flex items-center justify-center text-xs ${task.urgent ? 'bg-yellow-400' : 'bg-gray-100 hover:bg-gray-200'}`}>⚡</button>
+                                  <button onClick={() => setExpandedNotes({...expandedNotes, [task.id]: !expandedNotes[task.id]})} className={`w-7 h-7 rounded flex items-center justify-center text-xs ${expandedNotes[task.id] ? 'bg-purple-200' : 'bg-gray-100 hover:bg-gray-200'}`}>💬</button>
+                                  <button onClick={() => toggleComplete(task.id)} className={`w-7 h-7 rounded flex items-center justify-center ${task.completed ? 'bg-green-200' : 'bg-gray-100 hover:bg-gray-200'}`}>{task.completed ? '✓' : '○'}</button>
+                                  <button onClick={() => deleteTask(task.id)} className="w-7 h-7 bg-gray-100 hover:bg-red-100 rounded flex items-center justify-center">×</button>
                                 </div>
                               </div>
-                              <p className={`text-sm leading-relaxed mb-2 ${task.completed ? 'line-through' : ''}`}>{renderDescriptionWithLinks(task.description || '')}</p>
+                              <p className={`text-sm mb-2 ${task.completed ? 'line-through' : ''}`}>{renderDescription(task.description)}</p>
                               
-                              {/* FIXED: View Email Button - using onClick with window.open */}
-                              {task.emailLink && task.emailLink.trim() && (
-                                <button 
-                                  type="button"
-                                  onClick={() => openEmailLink(task.emailLink)}
-                                  className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold rounded-lg mt-2 cursor-pointer"
-                                >
-                                  📧 View Email
-                                </button>
+                              {safeString(task.emailLink).startsWith('http') && (
+                                <button onClick={() => openEmailLink(task.emailLink)} className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold rounded-lg mt-2">📧 View Email</button>
                               )}
                               
-                              {/* Expanded Notes Section - SEPARATE NOTES FOR DR. K AND ATHENA */}
                               {expandedNotes[task.id] && (
-                                <div className="mt-4 pt-4 border-t-2 border-gray-200 space-y-4">
-                                  {/* Dr. K's Notes - Blue theme */}
+                                <div className="mt-4 pt-4 border-t-2 space-y-4">
                                   <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3">
-                                    <label className="block text-xs font-bold text-blue-800 uppercase mb-2 flex items-center gap-2">
-                                      👨‍⚕️ Dr. K's Notes
-                                    </label>
-                                    <textarea
-                                      value={task.notesDrK || ''}
-                                      onChange={(e) => updateTaskNotes(task.id, 'notesDrK', e.target.value)}
-                                      placeholder="Dr. Koch: Add your comments, instructions, or feedback here..."
-                                      className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg text-sm min-h-16 bg-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                                    />
+                                    <label className="block text-xs font-bold text-blue-800 uppercase mb-2">👨‍⚕️ Dr. K's Notes</label>
+                                    <textarea value={safeString(task.notesDrK)} onChange={(e) => updateTaskNotes(task.id, 'notesDrK', e.target.value)} placeholder="Dr. Koch's comments..." className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg text-sm min-h-16 bg-white" />
                                   </div>
-                                  
-                                  {/* Athena's Notes - Purple theme */}
                                   <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-3">
-                                    <label className="block text-xs font-bold text-purple-800 uppercase mb-2 flex items-center gap-2">
-                                      👩‍💼 Athena's Notes
-                                    </label>
-                                    <textarea
-                                      value={task.notesAthena || ''}
-                                      onChange={(e) => updateTaskNotes(task.id, 'notesAthena', e.target.value)}
-                                      placeholder="Athena: Add context, updates, or additional information here..."
-                                      className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg text-sm min-h-16 bg-white focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-200"
-                                    />
+                                    <label className="block text-xs font-bold text-purple-800 uppercase mb-2">👩‍💼 Athena's Notes</label>
+                                    <textarea value={safeString(task.notesAthena)} onChange={(e) => updateTaskNotes(task.id, 'notesAthena', e.target.value)} placeholder="Athena's updates..." className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg text-sm min-h-16 bg-white" />
                                   </div>
                                 </div>
                               )}
                               
-                              {/* Show note previews when collapsed */}
-                              {!expandedNotes[task.id] && (task.notesDrK || task.notesAthena) && (
+                              {!expandedNotes[task.id] && (safeString(task.notesDrK) || safeString(task.notesAthena)) && (
                                 <div className="mt-2 space-y-1">
-                                  {task.notesDrK && (
-                                    <div className="p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-900">
-                                      <strong>👨‍⚕️ Dr. K:</strong> {task.notesDrK.substring(0, 60)}{task.notesDrK.length > 60 ? '...' : ''}
-                                    </div>
-                                  )}
-                                  {task.notesAthena && (
-                                    <div className="p-2 bg-purple-50 border border-purple-200 rounded text-xs text-purple-900">
-                                      <strong>👩‍💼 Athena:</strong> {task.notesAthena.substring(0, 60)}{task.notesAthena.length > 60 ? '...' : ''}
-                                    </div>
-                                  )}
+                                  {safeString(task.notesDrK) && <div className="p-2 bg-blue-50 border border-blue-200 rounded text-xs">👨‍⚕️ {task.notesDrK.substring(0, 60)}{task.notesDrK.length > 60 ? '...' : ''}</div>}
+                                  {safeString(task.notesAthena) && <div className="p-2 bg-purple-50 border border-purple-200 rounded text-xs">👩‍💼 {task.notesAthena.substring(0, 60)}{task.notesAthena.length > 60 ? '...' : ''}</div>}
                                 </div>
                               )}
                             </>
@@ -543,110 +471,99 @@ const DailyTaskTracker = () => {
                 ))
               )}
             </div>
+
             {/* Status */}
-            <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-xl p-5 my-6">
-              <h3 className="text-sm font-bold text-indigo-900 uppercase tracking-wide mb-3">📊 Status</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="bg-white rounded-lg p-3 text-center shadow-sm"><div className="text-2xl font-bold text-indigo-600">{tasks.length}</div><div className="text-xs text-gray-600 font-semibold">Total</div></div>
-                <div className="bg-white rounded-lg p-3 text-center shadow-sm"><div className="text-2xl font-bold text-green-600">{tasks.filter(t => t.completed).length}</div><div className="text-xs text-gray-600 font-semibold">Done</div></div>
-                <div className="bg-white rounded-lg p-3 text-center shadow-sm"><div className="text-2xl font-bold text-yellow-600">{tasks.filter(t => t.urgent && !t.completed).length}</div><div className="text-xs text-gray-600 font-semibold">Urgent</div></div>
-                <div className="bg-white rounded-lg p-3 text-center shadow-sm"><div className="text-2xl font-bold text-amber-600">{tasks.filter(t => t.carriedOver).length}</div><div className="text-xs text-gray-600 font-semibold">Carried</div></div>
+            <div className="bg-indigo-50 border-2 border-indigo-200 rounded-xl p-5 my-6">
+              <div className="grid grid-cols-4 gap-3 text-center">
+                <div className="bg-white rounded-lg p-3"><div className="text-2xl font-bold text-indigo-600">{tasks.length}</div><div className="text-xs">Total</div></div>
+                <div className="bg-white rounded-lg p-3"><div className="text-2xl font-bold text-green-600">{tasks.filter(t => t.completed).length}</div><div className="text-xs">Done</div></div>
+                <div className="bg-white rounded-lg p-3"><div className="text-2xl font-bold text-yellow-600">{tasks.filter(t => t.urgent && !t.completed).length}</div><div className="text-xs">Urgent</div></div>
+                <div className="bg-white rounded-lg p-3"><div className="text-2xl font-bold text-orange-600">{tasks.filter(t => t.carriedOver).length}</div><div className="text-xs">Carried</div></div>
               </div>
             </div>
-            {/* Add Task Form */}
-            <div className="mt-8 pt-6 border-t-2 border-gray-200">
-              <h3 className={`text-xl font-serif font-bold mb-4 ${darkMode ? 'text-white' : 'text-indigo-900'}`}>➕ Add New Task</h3>
-              <div className="bg-gray-50 rounded-xl p-5">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                  <div><label className="block text-xs font-semibold text-gray-600 uppercase mb-2">Category</label><select value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm"><option>Review</option><option>Sign</option><option>Respond</option><option>No Action Needed</option><option>PAY</option><option>Hold</option></select></div>
-                  <div><label className="block text-xs font-semibold text-gray-600 uppercase mb-2">Tag</label><select value={formData.tag} onChange={(e) => setFormData({...formData, tag: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm"><option>This Week's Projects</option><option>Office</option><option>Finance</option><option>Personal</option><option>Other</option></select></div>
+
+            {/* Add Task */}
+            <div className="mt-8 pt-6 border-t-2">
+              <h3 className={`text-xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-indigo-900'}`}>➕ Add Task</h3>
+              <div className="bg-gray-50 rounded-xl p-5 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <select value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})} className="px-3 py-2 border rounded-lg text-sm"><option>Review</option><option>Sign</option><option>Respond</option><option>No Action Needed</option><option>PAY</option><option>Hold</option></select>
+                  <select value={formData.tag} onChange={(e) => setFormData({...formData, tag: e.target.value})} className="px-3 py-2 border rounded-lg text-sm"><option>This Week's Projects</option><option>Office</option><option>Finance</option><option>Personal</option><option>Other</option></select>
                 </div>
-                <div className="mb-3"><label className="block text-xs font-semibold text-gray-600 uppercase mb-2">Description</label><textarea value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} placeholder="Enter task details..." className="w-full px-3 py-2 border rounded-lg text-sm min-h-20" /></div>
-                <div className="mb-3"><label className="block text-xs font-semibold text-gray-600 uppercase mb-2">📧 Email Link</label><input type="text" value={formData.emailLink} onChange={(e) => setFormData({...formData, emailLink: e.target.value})} placeholder="Paste Gmail link" className="w-full px-3 py-2 border rounded-lg text-sm" /></div>
-                <div className="flex items-center gap-2 mb-3"><input type="checkbox" checked={formData.urgent} onChange={(e) => setFormData({...formData, urgent: e.target.checked})} className="w-4 h-4" /><label className="text-sm">Mark as Urgent</label></div>
-                {editingTaskId ? <div className="p-3 bg-blue-100 border border-blue-300 rounded-lg text-sm text-blue-800">✏️ Editing task above. Save or cancel first.</div> : <button onClick={addTask} className="w-full py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 font-medium">➕ Add Task</button>}
+                <textarea value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} placeholder="Task description..." className="w-full px-3 py-2 border rounded-lg text-sm min-h-20" />
+                <input type="text" value={formData.emailLink} onChange={(e) => setFormData({...formData, emailLink: e.target.value})} placeholder="Email link (paste URL)" className="w-full px-3 py-2 border rounded-lg text-sm" />
+                <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={formData.urgent} onChange={(e) => setFormData({...formData, urgent: e.target.checked})} /> Mark Urgent</label>
+                {!editingTaskId && <button onClick={addTask} className="w-full py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 font-medium">➕ Add Task</button>}
               </div>
             </div>
           </div>
         )}
 
-        {/* Travel Section */}
+        {/* Travel */}
         {activeSection === 'travel' && (
           <div className={`rounded-2xl shadow-2xl p-6 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
-            <h2 className={`text-2xl font-serif font-bold mb-6 pb-4 border-b-2 ${darkMode ? 'text-white border-gray-600' : 'text-indigo-900 border-gray-200'}`}>✈️ Travel Planning</h2>
-            {/* Upcoming */}
+            <h2 className={`text-2xl font-serif font-bold mb-6 pb-4 border-b-2 ${darkMode ? 'text-white border-gray-600' : 'text-indigo-900 border-gray-200'}`}>✈️ Travel</h2>
+            
             {getUpcomingTravel().length > 0 && (
-              <div className="mb-6 p-4 bg-gradient-to-r from-cyan-50 to-blue-50 border-l-4 border-cyan-500 rounded-r-lg">
-                <h3 className="font-bold text-cyan-900 mb-2">🔔 Upcoming Travel</h3>
-                {getUpcomingTravel().map(trip => <div key={trip.id} className="text-sm text-cyan-800"><strong>{trip.description}</strong> - {trip.daysUntil === 0 ? 'Today!' : trip.daysUntil === 1 ? 'Tomorrow' : `in ${trip.daysUntil} days`}</div>)}
+              <div className="mb-6 p-4 bg-cyan-50 border-l-4 border-cyan-500 rounded-r-lg">
+                <h3 className="font-bold text-cyan-900 mb-2">🔔 Upcoming</h3>
+                {getUpcomingTravel().map(t => <div key={t.id} className="text-sm text-cyan-800"><strong>{t.description}</strong> — {t.daysUntil === 0 ? 'Today!' : t.daysUntil === 1 ? 'Tomorrow' : `${t.daysUntil} days`}</div>)}
               </div>
             )}
-            {/* Search */}
-            <div className="mb-6 flex flex-col md:flex-row gap-3">
-              <input type="text" placeholder="🔍 Search..." value={travelSearchQuery} onChange={(e) => setTravelSearchQuery(e.target.value)} className={`flex-1 px-4 py-2 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : ''}`} />
-              <div className="flex gap-2 flex-wrap">
-                {['all', ...travelTags].map(tag => <button key={tag} onClick={() => setTravelTagFilter(tag)} className={`px-3 py-2 rounded-lg text-sm font-medium ${travelTagFilter === tag ? 'bg-cyan-500 text-white' : darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100'}`}>{tag === 'all' ? 'All' : tag}</button>)}
-              </div>
+
+            <div className="mb-4 flex gap-3 flex-wrap">
+              <input type="text" placeholder="🔍 Search..." value={travelSearchQuery} onChange={(e) => setTravelSearchQuery(e.target.value)} className="flex-1 px-4 py-2 rounded-lg border min-w-48" />
+              {['all', ...travelTags].map(tag => <button key={tag} onClick={() => setTravelTagFilter(tag)} className={`px-3 py-2 rounded-lg text-sm ${travelTagFilter === tag ? 'bg-cyan-500 text-white' : 'bg-gray-100'}`}>{tag === 'all' ? 'All' : tag}</button>)}
             </div>
-            {/* Table */}
+
             <div className="overflow-x-auto mb-6">
-              <table className="w-full border-collapse">
-                <thead><tr className="bg-gradient-to-r from-blue-600 to-blue-500 text-white"><th className="px-4 py-3 text-left text-sm">Type</th><th className="px-4 py-3 text-left text-sm">Description</th><th className="px-4 py-3 text-left text-sm">Start</th><th className="px-4 py-3 text-left text-sm">End</th><th className="px-4 py-3 text-left text-sm">Location</th><th className="px-4 py-3 text-left text-sm">Confirmation</th><th className="px-4 py-3 text-center text-sm">Actions</th></tr></thead>
+              <table className="w-full">
+                <thead><tr className="bg-blue-600 text-white"><th className="px-4 py-3 text-left text-sm">Type</th><th className="px-4 py-3 text-left text-sm">Description</th><th className="px-4 py-3 text-left text-sm">Start</th><th className="px-4 py-3 text-left text-sm">End</th><th className="px-4 py-3 text-left text-sm">Location</th><th className="px-4 py-3 text-left text-sm">Conf#</th><th className="px-4 py-3 text-sm">Actions</th></tr></thead>
                 <tbody>
                   {(() => {
                     let filtered = travelEntries;
                     if (travelTagFilter !== 'all') filtered = filtered.filter(e => e.tags?.includes(travelTagFilter));
-                    if (travelSearchQuery.trim()) { const q = travelSearchQuery.toLowerCase(); filtered = filtered.filter(e => (e.description || '').toLowerCase().includes(q) || (e.location || '').toLowerCase().includes(q) || (e.confirmation || '').toLowerCase().includes(q)); }
-                    if (filtered.length === 0) return <tr><td colSpan="7" className="px-4 py-12 text-center text-gray-500"><div className="text-4xl mb-3">✈️</div><p>No travel entries found.</p></td></tr>;
-                    return filtered.map(entry => {
-                      const isUpcoming = new Date(entry.startDate) >= new Date();
-                      const typeIcons = { 'Flight': '✈️', 'Hotel': '🏨', 'Car': '🚗', 'Event': '📅', 'Conference': '🎤', 'Course': '📚' };
-                      const typeColors = { 'Flight': 'bg-blue-100 text-blue-800', 'Hotel': 'bg-purple-100 text-purple-800', 'Car': 'bg-yellow-100 text-yellow-800', 'Event': 'bg-pink-100 text-pink-800', 'Conference': 'bg-green-100 text-green-800', 'Course': 'bg-green-100 text-green-800' };
-                      const displayType = entry.tags?.[0] || entry.type;
-                      return (
-                        <tr key={entry.id} className={`border-b hover:bg-gray-50 ${isUpcoming ? 'bg-yellow-50' : ''}`}>
-                          <td className="px-4 py-3 text-sm"><span className={`px-2 py-1 rounded text-xs font-semibold ${typeColors[displayType] || 'bg-gray-100'}`}>{typeIcons[displayType] || '📋'} {displayType}</span></td>
-                          <td className="px-4 py-3 text-sm">{entry.url ? <a href={entry.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline font-semibold">{entry.description} 🔗</a> : entry.description}</td>
-                          <td className="px-4 py-3 text-sm">{entry.startDate}</td>
-                          <td className="px-4 py-3 text-sm">{entry.endDate}</td>
-                          <td className="px-4 py-3 text-sm">{entry.location}</td>
-                          <td className="px-4 py-3 text-sm font-mono">{entry.confirmation}</td>
-                          <td className="px-4 py-3 text-center"><button onClick={() => startEditTravel(entry)} className="text-blue-600 hover:text-blue-800 mr-2">✏️</button><button onClick={() => deleteTravelEntry(entry.id)} className="text-red-600 hover:text-red-800">×</button></td>
-                        </tr>
-                      );
-                    });
+                    if (travelSearchQuery.trim()) { const q = travelSearchQuery.toLowerCase(); filtered = filtered.filter(e => (e.description||'').toLowerCase().includes(q) || (e.location||'').toLowerCase().includes(q)); }
+                    if (!filtered.length) return <tr><td colSpan="7" className="py-12 text-center text-gray-500">No entries</td></tr>;
+                    const icons = { 'Flight': '✈️', 'Hotel': '🏨', 'Car': '🚗', 'Event': '📅', 'Conference': '🎤', 'Course': '📚' };
+                    const colors = { 'Flight': 'bg-blue-100 text-blue-800', 'Hotel': 'bg-purple-100 text-purple-800', 'Car': 'bg-yellow-100 text-yellow-800', 'Event': 'bg-pink-100 text-pink-800', 'Conference': 'bg-green-100 text-green-800', 'Course': 'bg-green-100 text-green-800' };
+                    return filtered.map(e => (
+                      <tr key={e.id} className={`border-b hover:bg-gray-50 ${new Date(e.startDate) >= new Date() ? 'bg-yellow-50' : ''}`}>
+                        <td className="px-4 py-3 text-sm"><span className={`px-2 py-1 rounded text-xs font-semibold ${colors[e.tags?.[0]] || 'bg-gray-100'}`}>{icons[e.tags?.[0]] || '📋'} {e.tags?.[0] || e.type}</span></td>
+                        <td className="px-4 py-3 text-sm">{e.description}</td>
+                        <td className="px-4 py-3 text-sm">{e.startDate}</td>
+                        <td className="px-4 py-3 text-sm">{e.endDate}</td>
+                        <td className="px-4 py-3 text-sm">{e.location}</td>
+                        <td className="px-4 py-3 text-sm font-mono">{e.confirmation}</td>
+                        <td className="px-4 py-3 text-center"><button onClick={() => startEditTravel(e)} className="text-blue-600 mr-2">✏️</button><button onClick={() => deleteTravelEntry(e.id)} className="text-red-600">×</button></td>
+                      </tr>
+                    ));
                   })()}
                 </tbody>
               </table>
             </div>
-            {/* Add Travel Form */}
-            <div className="mt-8 pt-6 border-t-2 border-gray-200">
-              <h3 className={`text-xl font-serif font-bold mb-4 ${darkMode ? 'text-white' : 'text-indigo-900'}`}>{editingTravelId ? '✏️ Edit Travel Entry' : '➕ Add Travel Entry'}</h3>
-              <div className="bg-blue-50 rounded-xl p-5">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  <div className="md:col-span-2">
-                    <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">Tags</label>
-                    <div className="flex flex-wrap gap-2">
-                      {travelTags.map(tag => {
-                        const tagEmojis = { 'Flight': '✈️', 'Hotel': '🏨', 'Car': '🚗', 'Event': '📅', 'Conference': '🎤', 'Course': '📚' };
-                        return <button key={tag} type="button" onClick={() => setTravelForm({...travelForm, tags: travelForm.tags.includes(tag) ? travelForm.tags.filter(t => t !== tag) : [...travelForm.tags, tag]})} className={`px-3 py-1.5 rounded-lg text-sm font-semibold ${travelForm.tags.includes(tag) ? 'bg-cyan-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>{tagEmojis[tag]} {tag}</button>;
-                      })}
-                    </div>
-                  </div>
-                  <div><label className="block text-xs font-semibold text-gray-600 uppercase mb-2">Description</label><input type="text" value={travelForm.description} onChange={(e) => setTravelForm({...travelForm, description: e.target.value})} placeholder="Flight details, hotel name..." className="w-full px-3 py-2 border rounded-lg text-sm" /></div>
-                  <div><label className="block text-xs font-semibold text-gray-600 uppercase mb-2">Start Date</label><input type="date" value={travelForm.startDate} onChange={(e) => setTravelForm({...travelForm, startDate: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" /></div>
-                  <div><label className="block text-xs font-semibold text-gray-600 uppercase mb-2">End Date</label><input type="date" value={travelForm.endDate} onChange={(e) => setTravelForm({...travelForm, endDate: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" /></div>
-                  <div><label className="block text-xs font-semibold text-gray-600 uppercase mb-2">Location</label><input type="text" value={travelForm.location} onChange={(e) => setTravelForm({...travelForm, location: e.target.value})} placeholder="Memphis, TN" className="w-full px-3 py-2 border rounded-lg text-sm" /></div>
-                  <div><label className="block text-xs font-semibold text-gray-600 uppercase mb-2">Confirmation #</label><input type="text" value={travelForm.confirmation} onChange={(e) => setTravelForm({...travelForm, confirmation: e.target.value})} placeholder="#ABC123" className="w-full px-3 py-2 border rounded-lg text-sm" /></div>
-                  <div><label className="block text-xs font-semibold text-gray-600 uppercase mb-2">URL (Optional)</label><input type="url" value={travelForm.url} onChange={(e) => setTravelForm({...travelForm, url: e.target.value})} placeholder="https://..." className="w-full px-3 py-2 border rounded-lg text-sm" /></div>
+
+            <div className="mt-8 pt-6 border-t-2">
+              <h3 className="text-xl font-bold mb-4">{editingTravelId ? '✏️ Edit' : '➕ Add'} Travel</h3>
+              <div className="bg-blue-50 rounded-xl p-5 space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  {travelTags.map(tag => {
+                    const icons = { 'Flight': '✈️', 'Hotel': '🏨', 'Car': '🚗', 'Event': '📅', 'Conference': '🎤', 'Course': '📚' };
+                    return <button key={tag} onClick={() => setTravelForm({...travelForm, tags: travelForm.tags.includes(tag) ? travelForm.tags.filter(t => t !== tag) : [...travelForm.tags, tag]})} className={`px-3 py-1.5 rounded-lg text-sm font-semibold ${travelForm.tags.includes(tag) ? 'bg-cyan-500 text-white' : 'bg-gray-200'}`}>{icons[tag]} {tag}</button>;
+                  })}
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  <input type="text" value={travelForm.description} onChange={(e) => setTravelForm({...travelForm, description: e.target.value})} placeholder="Description" className="px-3 py-2 border rounded-lg text-sm" />
+                  <input type="date" value={travelForm.startDate} onChange={(e) => setTravelForm({...travelForm, startDate: e.target.value})} className="px-3 py-2 border rounded-lg text-sm" />
+                  <input type="date" value={travelForm.endDate} onChange={(e) => setTravelForm({...travelForm, endDate: e.target.value})} className="px-3 py-2 border rounded-lg text-sm" />
+                  <input type="text" value={travelForm.location} onChange={(e) => setTravelForm({...travelForm, location: e.target.value})} placeholder="Location" className="px-3 py-2 border rounded-lg text-sm" />
+                  <input type="text" value={travelForm.confirmation} onChange={(e) => setTravelForm({...travelForm, confirmation: e.target.value})} placeholder="Confirmation #" className="px-3 py-2 border rounded-lg text-sm" />
+                  <input type="url" value={travelForm.url} onChange={(e) => setTravelForm({...travelForm, url: e.target.value})} placeholder="URL (optional)" className="px-3 py-2 border rounded-lg text-sm" />
                 </div>
                 {editingTravelId ? (
-                  <div className="grid grid-cols-2 gap-3 mt-4">
-                    <button onClick={saveEditTravel} className="py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 font-medium">✓ Save</button>
-                    <button onClick={cancelEditTravel} className="py-2 bg-gray-400 text-white rounded-lg hover:bg-gray-500 font-medium">Cancel</button>
-                  </div>
+                  <div className="flex gap-3"><button onClick={saveEditTravel} className="flex-1 py-2 bg-green-500 text-white rounded-lg">✓ Save</button><button onClick={cancelEditTravel} className="flex-1 py-2 bg-gray-400 text-white rounded-lg">Cancel</button></div>
                 ) : (
-                  <button onClick={addTravelEntry} className="w-full mt-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-medium">➕ Add Entry</button>
+                  <button onClick={addTravelEntry} className="w-full py-2 bg-blue-500 text-white rounded-lg">➕ Add Entry</button>
                 )}
               </div>
             </div>
@@ -657,8 +574,7 @@ const DailyTaskTracker = () => {
   );
 };
 
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<DailyTaskTracker />);
+ReactDOM.createRoot(document.getElementById('root')).render(<DailyTaskTracker />);
   </script>
 </body>
 </html>
