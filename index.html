@@ -15,7 +15,95 @@
   <script type="text/babel">
 const { useState, useEffect, useRef } = React;
 
-const DailyTaskTracker = () => {
+// Password Protection Component
+const PasswordGate = ({ children }) => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [isChecking, setIsChecking] = useState(true);
+  
+  const CORRECT_PASSWORD = 'jekoch78';
+  const AUTH_KEY = 'drk-workflow-auth';
+  
+  useEffect(() => {
+    // Check if device is remembered (no expiry - permanent until logout)
+    const authData = localStorage.getItem(AUTH_KEY);
+    if (authData) {
+      try {
+        const { remembered } = JSON.parse(authData);
+        if (remembered) {
+          setIsAuthenticated(true);
+        }
+      } catch (e) {
+        localStorage.removeItem(AUTH_KEY);
+      }
+    }
+    setIsChecking(false);
+  }, []);
+  
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (password === CORRECT_PASSWORD) {
+      localStorage.setItem(AUTH_KEY, JSON.stringify({ remembered: true, device: navigator.userAgent }));
+      setIsAuthenticated(true);
+      setError('');
+    } else {
+      setError('Incorrect password');
+      setPassword('');
+    }
+  };
+  
+  const handleLogout = () => {
+    localStorage.removeItem(AUTH_KEY);
+    setIsAuthenticated(false);
+    setPassword('');
+  };
+  
+  if (isChecking) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center">
+        <div className="text-white text-xl">Loading...</div>
+      </div>
+    );
+  }
+  
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-serif font-bold text-indigo-900 mb-2">Dr. K Workflow</h1>
+            <p className="text-gray-600">Please enter password to continue</p>
+          </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter password"
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none"
+                autoFocus
+              />
+            </div>
+            {error && <p className="text-red-600 text-sm text-center">{error}</p>}
+            <button
+              type="submit"
+              className="w-full py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold text-lg"
+            >
+              🔐 Access Workflow
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+  
+  // Pass logout function to children
+  return children(handleLogout);
+};
+
+const DailyTaskTracker = ({ onLogout }) => {
   const [tasks, setTasks] = useState([]);
   const [currentFilter, setCurrentFilter] = useState('all');
   const [activeSection, setActiveSection] = useState('tasks');
@@ -180,10 +268,11 @@ const DailyTaskTracker = () => {
     } else { alert('No backup found'); }
   };
 
+  // New task goes to TOP (beginning of array)
   const addTask = async () => {
     if (!formData.description.trim()) { alert('Please enter a task description'); return; }
     const newTask = normalizeTask({ id: Date.now(), ...formData, completed: false, carriedOver: false });
-    const updatedTasks = [...tasks, newTask];
+    const updatedTasks = [newTask, ...tasks];
     setTasks(updatedTasks);
     await saveTasksToStorage(updatedTasks);
     setFormData({ category: 'Review', tag: 'Office', description: '', emailLink: '', urgent: false, attachments: [] });
@@ -300,7 +389,7 @@ const DailyTaskTracker = () => {
   // Federal holidays 2026
   const federalHolidays = [
     { date: '2026-01-01', name: "New Year's Day" },
-    { date: '2026-01-19', name: "MLK Day" },
+    { date: '2026-01-19', name: "Martin Luther King Jr. Day" },
     { date: '2026-02-16', name: "Presidents' Day" },
     { date: '2026-05-25', name: "Memorial Day" },
     { date: '2026-06-19', name: "Juneteenth" },
@@ -309,8 +398,8 @@ const DailyTaskTracker = () => {
     { date: '2026-09-07', name: "Labor Day" },
     { date: '2026-10-12', name: "Columbus Day" },
     { date: '2026-11-11', name: "Veterans Day" },
-    { date: '2026-11-26', name: "Thanksgiving" },
-    { date: '2026-12-25', name: "Christmas" }
+    { date: '2026-11-26', name: "Thanksgiving Day" },
+    { date: '2026-12-25', name: "Christmas Day" }
   ];
 
   const getHoliday = (year, month, day) => {
@@ -404,7 +493,16 @@ const DailyTaskTracker = () => {
 
   const generateRecap = () => {
     if (tasks.length === 0) { alert('No tasks to recap.'); return; }
-    const sections = { "OFFICE": tasks.filter(t => t.tag === 'Office'), "FINANCE": tasks.filter(t => t.tag === 'Finance'), "PERSONAL": tasks.filter(t => t.tag === 'Personal'), "THIS WEEK'S PROJECTS": tasks.filter(t => t.tag === "This Week's Projects"), "ONGOING": tasks.filter(t => t.tag === 'Ongoing'), "OTHER": tasks.filter(t => !['Office','Finance','Personal',"This Week's Projects",'Ongoing'].includes(t.tag)) };
+    const sections = { 
+      "THIS WEEK'S PROJECTS": tasks.filter(t => t.tag === "This Week's Projects"),
+      "REAL ESTATE": tasks.filter(t => t.tag === 'Real Estate'),
+      "DR. RESPONSE": tasks.filter(t => t.tag === 'Dr. Response'),
+      "OFFICE": tasks.filter(t => t.tag === 'Office'), 
+      "FINANCE": tasks.filter(t => t.tag === 'Finance'), 
+      "TRAVEL": tasks.filter(t => t.tag === 'Travel'),
+      "PERSONAL": tasks.filter(t => t.tag === 'Personal'), 
+      "OTHER": tasks.filter(t => !["This Week's Projects",'Real Estate','Dr. Response','Office','Finance','Travel','Personal'].includes(t.tag)) 
+    };
     let recap = `DAILY RECAP – ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}\n\n`;
     Object.entries(sections).forEach(([name, items]) => {
       if (items.length > 0) {
@@ -420,15 +518,26 @@ const DailyTaskTracker = () => {
   const filteredTasks = currentFilter === 'all' ? tasks : tasks.filter(t => t.category === currentFilter);
 
   const groupTasksBySection = (taskList) => {
-    const sections = { "THIS WEEK'S PROJECTS": [], "OFFICE RELATED": [], "FINANCE RELATED": [], "PERSONAL RELATED": [], "ONGOING": [], "OTHER": [] };
+    const sections = { 
+      "THIS WEEK'S PROJECTS": [], 
+      "REAL ESTATE": [],
+      "DR. RESPONSE": [],
+      "OFFICE RELATED": [], 
+      "FINANCE RELATED": [], 
+      "TRAVEL RELATED": [],
+      "PERSONAL RELATED": [], 
+      "OTHER": [] 
+    };
     taskList.forEach(task => {
       if (!task) return;
       const tag = safeString(task.tag);
       if (tag === "This Week's Projects") sections["THIS WEEK'S PROJECTS"].push(task);
+      else if (tag === 'Real Estate') sections["REAL ESTATE"].push(task);
+      else if (tag === 'Dr. Response') sections["DR. RESPONSE"].push(task);
       else if (tag === 'Finance') sections["FINANCE RELATED"].push(task);
       else if (tag === 'Office') sections["OFFICE RELATED"].push(task);
+      else if (tag === 'Travel') sections["TRAVEL RELATED"].push(task);
       else if (tag === 'Personal') sections["PERSONAL RELATED"].push(task);
-      else if (tag === 'Ongoing') sections["ONGOING"].push(task);
       else sections["OTHER"].push(task);
     });
     return Object.entries(sections).filter(([_, t]) => t.length > 0);
@@ -436,10 +545,12 @@ const DailyTaskTracker = () => {
 
   const getSectionColor = (name) => {
     if (name.includes("WEEK'S PROJECTS")) return 'bg-gradient-to-r from-rose-600 to-pink-500';
+    if (name.includes('REAL ESTATE')) return 'bg-gradient-to-r from-emerald-600 to-emerald-500';
+    if (name.includes('DR. RESPONSE')) return 'bg-gradient-to-r from-indigo-600 to-indigo-500';
     if (name.includes('FINANCE')) return 'bg-gradient-to-r from-purple-600 to-purple-500';
     if (name.includes('OFFICE')) return 'bg-gradient-to-r from-blue-600 to-blue-500';
+    if (name.includes('TRAVEL')) return 'bg-gradient-to-r from-cyan-600 to-cyan-500';
     if (name.includes('PERSONAL')) return 'bg-gradient-to-r from-orange-600 to-orange-500';
-    if (name.includes('ONGOING')) return 'bg-gradient-to-r from-teal-600 to-teal-500';
     return 'bg-gradient-to-r from-gray-600 to-gray-500';
   };
 
@@ -454,8 +565,28 @@ const DailyTaskTracker = () => {
 
   const getBadgeClass = (type, value) => {
     const classes = {
-      category: { 'Review': 'bg-pink-100 text-pink-800', 'Sign': 'bg-yellow-100 text-yellow-800', 'Respond': 'bg-blue-100 text-blue-800', 'No Action Needed': 'bg-gray-100 text-gray-800', 'PAY': 'bg-lime-100 text-lime-800', 'Hold': 'bg-slate-700 text-white', 'Ongoing': 'bg-teal-100 text-teal-800' },
-      tag: { "This Week's Projects": 'bg-rose-100 text-rose-700', 'Office': 'bg-blue-100 text-blue-700', 'Finance': 'bg-green-100 text-green-700', 'Personal': 'bg-purple-100 text-purple-700', 'Ongoing': 'bg-teal-100 text-teal-700', 'Other': 'bg-gray-100 text-gray-700' }
+      category: { 
+        'Review': 'bg-pink-100 text-pink-800', 
+        'Sign': 'bg-yellow-100 text-yellow-800', 
+        'Appointment': 'bg-cyan-100 text-cyan-800',
+        'Approve': 'bg-emerald-100 text-emerald-800',
+        'Respond': 'bg-blue-100 text-blue-800', 
+        'No Action Needed': 'bg-gray-100 text-gray-800', 
+        'PAY': 'bg-lime-100 text-lime-800', 
+        'Hold': 'bg-slate-700 text-white',
+        'Errands': 'bg-amber-100 text-amber-800',
+        'Dr. Response': 'bg-indigo-100 text-indigo-800'
+      },
+      tag: { 
+        "This Week's Projects": 'bg-rose-100 text-rose-700',
+        'Real Estate': 'bg-emerald-100 text-emerald-700',
+        'Dr. Response': 'bg-indigo-100 text-indigo-700',
+        'Office': 'bg-blue-100 text-blue-700', 
+        'Finance': 'bg-green-100 text-green-700', 
+        'Travel': 'bg-cyan-100 text-cyan-700',
+        'Personal': 'bg-purple-100 text-purple-700', 
+        'Other': 'bg-gray-100 text-gray-700' 
+      }
     };
     return classes[type]?.[value] || 'bg-gray-100 text-gray-700';
   };
@@ -495,6 +626,7 @@ const DailyTaskTracker = () => {
               )}
               <button onClick={loadTasksFromStorage} disabled={isLoading} className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50">{isLoading ? '⏳' : '🔄'} Sync</button>
               <button onClick={toggleDarkMode} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">{darkMode ? '☀️' : '🌙'}</button>
+              <button onClick={onLogout} className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200">🚪 Logout</button>
             </div>
           </div>
           <div className="flex gap-2 mt-6 border-b-2">
@@ -506,7 +638,7 @@ const DailyTaskTracker = () => {
           </div>
         </div>
 
-        {/* Instructions */}
+        {/* Instructions Tab */}
         {activeSection === 'instructions' && (
           <div className={`rounded-2xl shadow-2xl p-8 ${darkMode ? 'bg-gray-800 text-white' : 'bg-white'}`}>
             <h2 className="text-2xl font-bold mb-6">How to Use</h2>
@@ -537,14 +669,14 @@ const DailyTaskTracker = () => {
           </div>
         )}
 
-        {/* Tasks */}
+        {/* Tasks Tab */}
         {activeSection === 'tasks' && (
           <div className={`rounded-2xl shadow-2xl p-6 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
             <h2 className={`text-2xl font-serif font-bold mb-6 pb-4 border-b-2 ${darkMode ? 'text-white border-gray-600' : 'text-indigo-900 border-gray-200'}`}>Today's Tasks</h2>
             
             <div className="flex flex-wrap gap-2 mb-4">
-              {['all', 'Review', 'Sign', 'Respond', 'No Action Needed', 'PAY', 'Hold', 'Ongoing'].map(f => (
-                <button key={f} onClick={() => setCurrentFilter(f)} className={`px-4 py-2 rounded-lg text-sm font-medium ${currentFilter === f ? 'bg-indigo-600 text-white' : darkMode ? 'bg-gray-700 text-gray-300' : 'bg-white border hover:bg-gray-50'}`}>{f === 'all' ? 'All' : f}</button>
+              {['all', 'Review', 'Sign', 'Appointment', 'Approve', 'Respond', 'No Action Needed', 'PAY', 'Hold', 'Errands', 'Dr. Response'].map(f => (
+                <button key={f} onClick={() => setCurrentFilter(f)} className={`px-3 py-1.5 rounded-lg text-xs font-medium ${currentFilter === f ? 'bg-indigo-600 text-white' : darkMode ? 'bg-gray-700 text-gray-300' : 'bg-white border hover:bg-gray-50'}`}>{f === 'all' ? 'All' : f}</button>
               ))}
             </div>
 
@@ -564,8 +696,12 @@ const DailyTaskTracker = () => {
                             <div className="space-y-3">
                               <div className="flex justify-between"><span className="font-bold text-blue-700">✏️ Editing</span><button onClick={cancelEditTask}>✕</button></div>
                               <div className="grid grid-cols-2 gap-2">
-                                <select value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})} className="px-2 py-1.5 border rounded text-sm"><option>Review</option><option>Sign</option><option>Respond</option><option>No Action Needed</option><option>PAY</option><option>Hold</option><option>Ongoing</option></select>
-                                <select value={formData.tag} onChange={(e) => setFormData({...formData, tag: e.target.value})} className="px-2 py-1.5 border rounded text-sm"><option>This Week's Projects</option><option>Office</option><option>Finance</option><option>Personal</option><option>Ongoing</option><option>Other</option></select>
+                                <select value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})} className="px-2 py-1.5 border rounded text-sm">
+                                  <option>Review</option><option>Sign</option><option>Appointment</option><option>Approve</option><option>Respond</option><option>No Action Needed</option><option>PAY</option><option>Hold</option><option>Errands</option><option>Dr. Response</option>
+                                </select>
+                                <select value={formData.tag} onChange={(e) => setFormData({...formData, tag: e.target.value})} className="px-2 py-1.5 border rounded text-sm">
+                                  <option>This Week's Projects</option><option>Real Estate</option><option>Dr. Response</option><option>Office</option><option>Finance</option><option>Travel</option><option>Personal</option><option>Other</option>
+                                </select>
                               </div>
                               <textarea value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} className="w-full px-3 py-2 border rounded text-sm min-h-24" />
                               <input type="text" value={formData.emailLink} onChange={(e) => setFormData({...formData, emailLink: e.target.value})} placeholder="Email link (URL)" className="w-full px-3 py-2 border rounded text-sm" />
@@ -641,8 +777,12 @@ const DailyTaskTracker = () => {
               <h3 className={`text-xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-indigo-900'}`}>➕ Add Task</h3>
               <div className="bg-gray-50 rounded-xl p-5 space-y-3">
                 <div className="grid grid-cols-2 gap-3">
-                  <select value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})} className="px-3 py-2 border rounded-lg text-sm"><option>Review</option><option>Sign</option><option>Respond</option><option>No Action Needed</option><option>PAY</option><option>Hold</option><option>Ongoing</option></select>
-                  <select value={formData.tag} onChange={(e) => setFormData({...formData, tag: e.target.value})} className="px-3 py-2 border rounded-lg text-sm"><option>This Week's Projects</option><option>Office</option><option>Finance</option><option>Personal</option><option>Ongoing</option><option>Other</option></select>
+                  <select value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})} className="px-3 py-2 border rounded-lg text-sm">
+                    <option>Review</option><option>Sign</option><option>Appointment</option><option>Approve</option><option>Respond</option><option>No Action Needed</option><option>PAY</option><option>Hold</option><option>Errands</option><option>Dr. Response</option>
+                  </select>
+                  <select value={formData.tag} onChange={(e) => setFormData({...formData, tag: e.target.value})} className="px-3 py-2 border rounded-lg text-sm">
+                    <option>This Week's Projects</option><option>Real Estate</option><option>Dr. Response</option><option>Office</option><option>Finance</option><option>Travel</option><option>Personal</option><option>Other</option>
+                  </select>
                 </div>
                 <textarea value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} placeholder="Task description..." className="w-full px-3 py-2 border rounded-lg text-sm min-h-20" />
                 <input type="text" value={formData.emailLink} onChange={(e) => setFormData({...formData, emailLink: e.target.value})} placeholder="Email link (paste URL)" className="w-full px-3 py-2 border rounded-lg text-sm" />
@@ -653,7 +793,7 @@ const DailyTaskTracker = () => {
           </div>
         )}
 
-        {/* Travel */}
+        {/* Travel Tab */}
         {activeSection === 'travel' && (
           <div className={`rounded-2xl shadow-2xl p-6 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
             <h2 className={`text-2xl font-serif font-bold mb-6 pb-4 border-b-2 ${darkMode ? 'text-white border-gray-600' : 'text-indigo-900 border-gray-200'}`}>✈️ Travel</h2>
@@ -726,6 +866,21 @@ const DailyTaskTracker = () => {
             <div className="mt-8 pt-6 border-t-2">
               <Calendar year={calendarYear} />
             </div>
+
+            {/* Federal Holidays List */}
+            <div className="mt-8 pt-6 border-t-2">
+              <h3 className={`text-xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-indigo-900'}`}>🇺🇸 2026 Federal Holidays</h3>
+              <div className="bg-red-50 rounded-xl p-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {federalHolidays.map((h, i) => (
+                    <div key={i} className="flex justify-between items-center p-2 bg-white rounded-lg border border-red-200">
+                      <span className="font-medium text-gray-800">{h.name}</span>
+                      <span className="text-sm text-red-600 font-mono">{new Date(h.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -733,7 +888,16 @@ const DailyTaskTracker = () => {
   );
 };
 
-ReactDOM.createRoot(document.getElementById('root')).render(<DailyTaskTracker />);
+// Main App with Password Gate
+const App = () => {
+  return (
+    <PasswordGate>
+      {(handleLogout) => <DailyTaskTracker onLogout={handleLogout} />}
+    </PasswordGate>
+  );
+};
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   </script>
 </body>
 </html>
