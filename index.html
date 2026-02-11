@@ -316,9 +316,27 @@ const DailyTaskTracker = ({ onLogout }) => {
     });
   };
 
+  // UPDATED: Edited task moves to top of its category
   const saveEditTask = async () => {
     if (!formData.description.trim()) { alert('Please enter a task description'); return; }
-    const updatedTasks = tasks.map(t => t.id === editingTaskId ? { ...t, ...formData } : t);
+    
+    // Safety check: find the task being edited
+    const editedTask = tasks.find(t => t.id === editingTaskId);
+    if (!editedTask) {
+      console.error('Task not found for editing:', editingTaskId);
+      cancelEditTask();
+      return;
+    }
+    
+    // Remove task from current position
+    const otherTasks = tasks.filter(t => t.id !== editingTaskId);
+    
+    // Create updated task with all existing data preserved + new form data
+    const updatedTask = normalizeTask({ ...editedTask, ...formData });
+    
+    // Add to top of array (will appear at top of its category section)
+    const updatedTasks = [updatedTask, ...otherTasks];
+    
     setTasks(updatedTasks);
     await saveTasksToStorage(updatedTasks);
     cancelEditTask();
@@ -650,6 +668,10 @@ const DailyTaskTracker = ({ onLogout }) => {
               <div className="p-4 bg-green-50 border-l-4 border-green-500 rounded-r-lg">
                 <h3 className="font-bold text-green-900">💾 Auto-Save</h3>
                 <p className="text-green-800 mt-1">Tasks automatically save every <strong>5 minutes</strong>. A local backup is also kept.</p>
+              </div>
+              <div className="p-4 bg-amber-50 border-l-4 border-amber-500 rounded-r-lg">
+                <h3 className="font-bold text-amber-900">✏️ Edit = Move to Top</h3>
+                <p className="text-amber-800 mt-1">When you edit a task, it automatically moves to the <strong>top of its category</strong> for visibility.</p>
               </div>
               <div className="p-4 bg-gray-50 rounded-lg">
                 <h3 className="font-bold mb-2">Button Guide:</h3>
