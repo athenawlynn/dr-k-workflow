@@ -107,7 +107,6 @@ const DailyTaskTracker = ({ onLogout }) => {
   const [tasks, setTasks] = useState([]);
   const [currentFilter, setCurrentFilter] = useState('all');
   const [activeSection, setActiveSection] = useState('tasks');
-  const [expandedNotes, setExpandedNotes] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
@@ -151,7 +150,8 @@ const DailyTaskTracker = ({ onLogout }) => {
     description: '',
     emailLink: '',
     urgent: false,
-    attachments: []
+    attachments: [],
+    comeBackDate: ''
   });
 
   const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbw9Ty5GgzlSW8SED_sZhkylKwYG7Dyxja6SeTlZE1-VOKdf3soajalVDDovvN6nHFS9VQ/exec';
@@ -190,7 +190,8 @@ const DailyTaskTracker = ({ onLogout }) => {
       carriedOver: Boolean(task.carriedOver),
       notesDrK: safeString(task.notesDrK) || safeString(task.notes),
       notesAthena: safeString(task.notesAthena),
-      attachments: Array.isArray(task.attachments) ? task.attachments : []
+      attachments: Array.isArray(task.attachments) ? task.attachments : [],
+      comeBackDate: safeString(task.comeBackDate) // YYYY-MM-DD format or empty
     };
   };
 
@@ -275,7 +276,7 @@ const DailyTaskTracker = ({ onLogout }) => {
     const updatedTasks = [newTask, ...tasks];
     setTasks(updatedTasks);
     await saveTasksToStorage(updatedTasks);
-    setFormData({ category: 'Review', tag: 'Office', description: '', emailLink: '', urgent: false, attachments: [] });
+    setFormData({ category: 'Review', tag: 'Office', description: '', emailLink: '', urgent: false, attachments: [], comeBackDate: '' });
   };
 
   const toggleComplete = async (id) => {
@@ -292,16 +293,98 @@ const DailyTaskTracker = ({ onLogout }) => {
     }
   };
 
-  const updateTaskNotes = async (id, noteType, value) => {
-    const updatedTasks = tasks.map(t => t.id === id ? { ...t, [noteType]: value } : t);
+  // Local state for notes being edited (prevents save on every keystroke)
+  const [editingNotes, setEditingNotes] = useState({});
+
+  const updateLocalNote = (id, noteType, value) => {
+    setEditingNotes(prev => ({
+      ...prev,
+      [id]: { ...prev[id], [noteType]: value }
+    }));
+  };
+
+  const saveNoteOnBlur = async (id, noteType) => {
+    const noteValue = editingNotes[id]?.[noteType];
+    if (noteValue === undefined) return; // Nothing was edited
+    
+    const updatedTasks = tasks.map(t => t.id === id ? { ...t, [noteType]: noteValue } : t);
     setTasks(updatedTasks);
     await saveTasksToStorage(updatedTasks);
+    
+    // Clear from editing state
+    setEditingNotes(prev => {
+      const newState = { ...prev };
+      if (newState[id]) {
+        delete newState[id][noteType];
+        if (Object.keys(newState[id]).length === 0) delete newState[id];
+      }
+      return newState;
+    });
+  };
+
+  const getNoteValue = (task, noteType) => {
+    // If currently editing, show the editing value; otherwise show saved value
+    if (editingNotes[task.id]?.[noteType] !== undefined) {
+      return editingNotes[task.id][noteType];
+    }
+    return safeString(task[noteType]);
   };
 
   const toggleUrgent = async (id) => {
     const updatedTasks = tasks.map(t => t.id === id ? { ...t, urgent: !t.urgent } : t);
     setTasks(updatedTasks);
     await saveTasksToStorage(updatedTasks);
+  };
+
+  // Come Back date functions
+  const setComeBackDate = async (id, date) => {
+    const updatedTasks = tasks.map(t => t.id === id ? { ...t, comeBackDate: date } : t);
+    setTasks(updatedTasks);
+    await saveTasksToStorage(updatedTasks);
+  };
+
+  const clearComeBackDate = async (id) => {
+    const updatedTasks = tasks.map(t => t.id === id ? { ...t, comeBackDate: '' } : t);
+    setTasks(updatedTasks);
+    await saveTasksToStorage(updatedTasks);
+  };
+
+  // Check if task should be in Come Back tab (has future date)
+  const isInComeBackTab = (task) => {
+    if (!task.comeBackDate) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const comeBack = new Date(task.comeBackDate + 'T00:00:00');
+    return comeBack > today;
+  };
+
+  // Get tasks for main Tasks tab (no comeBackDate or date is today/past)
+  const getActiveTasks = () => {
+    return tasks.filter(t => !isInComeBackTab(t));
+  };
+
+  // Get tasks for Come Back tab (future comeBackDate), sorted by date
+  const getComeBackTasks = () => {
+    return tasks
+      .filter(t => isInComeBackTab(t))
+      .sort((a, b) => new Date(a.comeBackDate) - new Date(b.comeBackDate));
+  };
+
+  // Format come back date for display
+  const formatComeBackDate = (dateStr) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr + 'T12:00:00');
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  // Calculate days until come back
+  const getDaysUntilComeBack = (dateStr) => {
+    if (!dateStr) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const comeBack = new Date(dateStr + 'T00:00:00');
+    const diff = Math.ceil((comeBack - today) / (1000 * 60 * 60 * 24));
+    return diff;
   };
 
   const startEditTask = (task) => {
@@ -312,7 +395,8 @@ const DailyTaskTracker = ({ onLogout }) => {
       description: safeString(task.description), 
       emailLink: safeString(task.emailLink), 
       urgent: Boolean(task.urgent), 
-      attachments: task.attachments || [] 
+      attachments: task.attachments || [],
+      comeBackDate: safeString(task.comeBackDate)
     });
   };
 
@@ -344,7 +428,7 @@ const DailyTaskTracker = ({ onLogout }) => {
 
   const cancelEditTask = () => {
     setEditingTaskId(null);
-    setFormData({ category: 'Review', tag: 'Office', description: '', emailLink: '', urgent: false, attachments: [] });
+    setFormData({ category: 'Review', tag: 'Office', description: '', emailLink: '', urgent: false, attachments: [], comeBackDate: '' });
   };
 
   const openEmailLink = (url) => {
@@ -533,8 +617,6 @@ const DailyTaskTracker = ({ onLogout }) => {
     setRecapText(recap);
   };
 
-  const filteredTasks = currentFilter === 'all' ? tasks : tasks.filter(t => t.category === currentFilter);
-
   const groupTasksBySection = (taskList) => {
     const sections = { 
       "THIS WEEK'S PROJECTS": [], 
@@ -617,7 +699,14 @@ const DailyTaskTracker = ({ onLogout }) => {
     { quote: "The basis of your life is absolute freedom, the goal is joy.", author: "Esther Hicks" }
   ];
   const dailyQuote = quotes[new Date().getDay() % quotes.length];
+  
+  // Filter active tasks (not in come back) then apply category filter
+  const activeTasks = getActiveTasks();
+  const filteredTasks = currentFilter === 'all' ? activeTasks : activeTasks.filter(t => t.category === currentFilter);
   const groupedTasks = groupTasksBySection(filteredTasks);
+  
+  // Come back tasks for the Come Back tab
+  const comeBackTasks = getComeBackTasks();
 
   return (
     <div className={`min-h-screen p-4 ${darkMode ? 'bg-gradient-to-br from-gray-900 to-gray-800' : 'bg-gradient-to-br from-indigo-600 to-purple-700'}`}>
@@ -647,8 +736,8 @@ const DailyTaskTracker = ({ onLogout }) => {
               <button onClick={onLogout} className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200">🚪 Logout</button>
             </div>
           </div>
-          <div className="flex gap-2 mt-6 border-b-2">
-            {[['tasks', '📋 Tasks'], ['travel', '✈️ Travel'], ['instructions', '📖 Help']].map(([key, label]) => (
+          <div className="flex gap-2 mt-6 border-b-2 flex-wrap">
+            {[['tasks', '📋 Tasks'], ['comeback', `🔄 Come Back${comeBackTasks.length > 0 ? ` (${comeBackTasks.length})` : ''}`], ['travel', '✈️ Travel'], ['instructions', '📖 Help']].map(([key, label]) => (
               <button key={key} onClick={() => setActiveSection(key)} className={`px-6 py-3 font-semibold relative ${activeSection === key ? 'text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}>
                 {label}{activeSection === key && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600"></div>}
               </button>
@@ -662,8 +751,8 @@ const DailyTaskTracker = ({ onLogout }) => {
             <h2 className="text-2xl font-bold mb-6">How to Use</h2>
             <div className="space-y-4">
               <div className="p-4 bg-blue-50 border-l-4 border-blue-500 rounded-r-lg">
-                <h3 className="font-bold text-blue-900">📝 Separate Notes</h3>
-                <p className="text-blue-800 mt-1">Each task has two note areas: <strong className="text-blue-600">Dr. K's Notes</strong> (blue) and <strong className="text-purple-600">Athena's Notes</strong> (purple)</p>
+                <h3 className="font-bold text-blue-900">📝 Notes Always Visible</h3>
+                <p className="text-blue-800 mt-1">Each task shows both note areas: <strong className="text-blue-600">Dr. K's Notes</strong> (blue) and <strong className="text-purple-600">Athena's Notes</strong> (purple). No need to expand!</p>
               </div>
               <div className="p-4 bg-green-50 border-l-4 border-green-500 rounded-r-lg">
                 <h3 className="font-bold text-green-900">💾 Auto-Save</h3>
@@ -673,12 +762,21 @@ const DailyTaskTracker = ({ onLogout }) => {
                 <h3 className="font-bold text-amber-900">✏️ Edit = Move to Top</h3>
                 <p className="text-amber-800 mt-1">When you edit a task, it automatically moves to the <strong>top of its category</strong> for visibility.</p>
               </div>
+              <div className="p-4 bg-orange-50 border-l-4 border-orange-500 rounded-r-lg">
+                <h3 className="font-bold text-orange-900">🔄 Come Back Later</h3>
+                <p className="text-orange-800 mt-1">Set a <strong>"Come back"</strong> date on any task to temporarily move it to the Come Back tab. It will automatically return to Tasks on that date!</p>
+              </div>
               <div className="p-4 bg-gray-50 rounded-lg">
                 <h3 className="font-bold mb-2">Button Guide:</h3>
-                <div className="grid grid-cols-3 gap-2 text-sm">
-                  <span>✏️ Edit</span><span>⚡ Urgent</span><span>💬 Notes</span>
-                  <span>○/✓ Complete</span><span>× Delete</span><span>🔄 Sync</span>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <span>✏️ Edit task</span><span>⚡ Toggle urgent</span>
+                  <span>○/✓ Complete</span><span>× Delete</span>
+                  <span>↩️ Bring back now</span><span>🔄 Schedule come back</span>
                 </div>
+              </div>
+              <div className="p-4 bg-blue-50 border-l-4 border-blue-500 rounded-r-lg">
+                <h3 className="font-bold text-blue-900">💾 Notes Save Automatically</h3>
+                <p className="text-blue-800 mt-1">Notes save when you <strong>click outside</strong> the text box. This prevents data loss from rapid typing.</p>
               </div>
               <button onClick={generateRecap} className="w-full py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium">✨ Generate Daily Recap</button>
               {recapText && (
@@ -727,7 +825,13 @@ const DailyTaskTracker = ({ onLogout }) => {
                               </div>
                               <textarea value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} className="w-full px-3 py-2 border rounded text-sm min-h-24" />
                               <input type="text" value={formData.emailLink} onChange={(e) => setFormData({...formData, emailLink: e.target.value})} placeholder="Email link (URL)" className="w-full px-3 py-2 border rounded text-sm" />
-                              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={formData.urgent} onChange={(e) => setFormData({...formData, urgent: e.target.checked})} /> Urgent</label>
+                              <div className="flex items-center gap-3 flex-wrap">
+                                <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={formData.urgent} onChange={(e) => setFormData({...formData, urgent: e.target.checked})} /> Urgent</label>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm text-gray-600">🔄 Come back:</span>
+                                  <input type="date" value={formData.comeBackDate || ''} onChange={(e) => setFormData({...formData, comeBackDate: e.target.value})} className="px-2 py-1 border rounded text-sm" min={new Date().toISOString().split('T')[0]} />
+                                </div>
+                              </div>
                               <div className="flex gap-2">
                                 <button onClick={saveEditTask} className="flex-1 py-2 bg-blue-500 text-white rounded-lg">✓ Save</button>
                                 <button onClick={cancelEditTask} className="flex-1 py-2 bg-gray-300 rounded-lg">Cancel</button>
@@ -744,7 +848,6 @@ const DailyTaskTracker = ({ onLogout }) => {
                                 <div className="flex gap-1">
                                   <button onClick={() => startEditTask(task)} className="w-7 h-7 bg-blue-100 hover:bg-blue-200 rounded flex items-center justify-center text-xs">✏️</button>
                                   <button onClick={() => toggleUrgent(task.id)} className={`w-7 h-7 rounded flex items-center justify-center text-xs ${task.urgent ? 'bg-yellow-400' : 'bg-gray-100 hover:bg-gray-200'}`}>⚡</button>
-                                  <button onClick={() => setExpandedNotes({...expandedNotes, [task.id]: !expandedNotes[task.id]})} className={`w-7 h-7 rounded flex items-center justify-center text-xs ${expandedNotes[task.id] ? 'bg-purple-200' : 'bg-gray-100 hover:bg-gray-200'}`}>💬</button>
                                   <button onClick={() => toggleComplete(task.id)} className={`w-7 h-7 rounded flex items-center justify-center ${task.completed ? 'bg-green-200' : 'bg-gray-100 hover:bg-gray-200'}`}>{task.completed ? '✓' : '○'}</button>
                                   <button onClick={() => deleteTask(task.id)} className="w-7 h-7 bg-gray-100 hover:bg-red-100 rounded flex items-center justify-center">×</button>
                                 </div>
@@ -755,25 +858,49 @@ const DailyTaskTracker = ({ onLogout }) => {
                                 <button onClick={() => openEmailLink(task.emailLink)} className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold rounded-lg mt-2">📧 View Email</button>
                               )}
                               
-                              {expandedNotes[task.id] && (
-                                <div className="mt-4 pt-4 border-t-2 space-y-4">
-                                  <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3">
-                                    <label className="block text-xs font-bold text-blue-800 uppercase mb-2">👨‍⚕️ Dr. K's Notes</label>
-                                    <textarea value={safeString(task.notesDrK)} onChange={(e) => updateTaskNotes(task.id, 'notesDrK', e.target.value)} placeholder="Dr. Koch's comments..." className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg text-sm min-h-16 bg-white" />
-                                  </div>
-                                  <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-3">
-                                    <label className="block text-xs font-bold text-purple-800 uppercase mb-2">👩‍💼 Athena's Notes</label>
-                                    <textarea value={safeString(task.notesAthena)} onChange={(e) => updateTaskNotes(task.id, 'notesAthena', e.target.value)} placeholder="Athena's updates..." className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg text-sm min-h-16 bg-white" />
-                                  </div>
-                                </div>
-                              )}
+                              {/* Come Back Date Picker */}
+                              <div className="mt-3 flex items-center gap-2 flex-wrap">
+                                <span className="text-xs font-semibold text-gray-600">🔄 Come back:</span>
+                                <input 
+                                  type="date" 
+                                  value={task.comeBackDate || ''} 
+                                  onChange={(e) => setComeBackDate(task.id, e.target.value)}
+                                  className="px-2 py-1 border rounded text-xs"
+                                  min={new Date().toISOString().split('T')[0]}
+                                />
+                                {task.comeBackDate && (
+                                  <button 
+                                    onClick={() => clearComeBackDate(task.id)} 
+                                    className="px-2 py-1 bg-gray-200 hover:bg-gray-300 rounded text-xs"
+                                  >
+                                    Clear
+                                  </button>
+                                )}
+                              </div>
                               
-                              {!expandedNotes[task.id] && (safeString(task.notesDrK) || safeString(task.notesAthena)) && (
-                                <div className="mt-2 space-y-1">
-                                  {safeString(task.notesDrK) && <div className="p-2 bg-blue-50 border border-blue-200 rounded text-xs">👨‍⚕️ {task.notesDrK.substring(0, 60)}{task.notesDrK.length > 60 ? '...' : ''}</div>}
-                                  {safeString(task.notesAthena) && <div className="p-2 bg-purple-50 border border-purple-200 rounded text-xs">👩‍💼 {task.notesAthena.substring(0, 60)}{task.notesAthena.length > 60 ? '...' : ''}</div>}
+                              {/* Notes - Always visible */}
+                              <div className="mt-4 pt-4 border-t-2 space-y-3">
+                                <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3">
+                                  <label className="block text-xs font-bold text-blue-800 uppercase mb-2">👨‍⚕️ Dr. K's Notes</label>
+                                  <textarea 
+                                    value={getNoteValue(task, 'notesDrK')} 
+                                    onChange={(e) => updateLocalNote(task.id, 'notesDrK', e.target.value)} 
+                                    onBlur={() => saveNoteOnBlur(task.id, 'notesDrK')}
+                                    placeholder="Dr. Koch's comments..." 
+                                    className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg text-sm min-h-16 bg-white" 
+                                  />
                                 </div>
-                              )}
+                                <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-3">
+                                  <label className="block text-xs font-bold text-purple-800 uppercase mb-2">👩‍💼 Athena's Notes</label>
+                                  <textarea 
+                                    value={getNoteValue(task, 'notesAthena')} 
+                                    onChange={(e) => updateLocalNote(task.id, 'notesAthena', e.target.value)} 
+                                    onBlur={() => saveNoteOnBlur(task.id, 'notesAthena')}
+                                    placeholder="Athena's updates..." 
+                                    className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg text-sm min-h-16 bg-white" 
+                                  />
+                                </div>
+                              </div>
                             </>
                           )}
                         </div>
@@ -786,11 +913,12 @@ const DailyTaskTracker = ({ onLogout }) => {
 
             {/* Status */}
             <div className="bg-indigo-50 border-2 border-indigo-200 rounded-xl p-5 my-6">
-              <div className="grid grid-cols-4 gap-3 text-center">
-                <div className="bg-white rounded-lg p-3"><div className="text-2xl font-bold text-indigo-600">{tasks.length}</div><div className="text-xs">Total</div></div>
+              <div className="grid grid-cols-5 gap-3 text-center">
+                <div className="bg-white rounded-lg p-3"><div className="text-2xl font-bold text-indigo-600">{activeTasks.length}</div><div className="text-xs">Active</div></div>
                 <div className="bg-white rounded-lg p-3"><div className="text-2xl font-bold text-green-600">{tasks.filter(t => t.completed).length}</div><div className="text-xs">Done</div></div>
                 <div className="bg-white rounded-lg p-3"><div className="text-2xl font-bold text-yellow-600">{tasks.filter(t => t.urgent && !t.completed).length}</div><div className="text-xs">Urgent</div></div>
-                <div className="bg-white rounded-lg p-3"><div className="text-2xl font-bold text-orange-600">{tasks.filter(t => t.carriedOver).length}</div><div className="text-xs">Carried</div></div>
+                <div className="bg-white rounded-lg p-3"><div className="text-2xl font-bold text-amber-600">{comeBackTasks.length}</div><div className="text-xs">Come Back</div></div>
+                <div className="bg-white rounded-lg p-3"><div className="text-2xl font-bold text-gray-600">{tasks.length}</div><div className="text-xs">Total</div></div>
               </div>
             </div>
 
@@ -812,6 +940,83 @@ const DailyTaskTracker = ({ onLogout }) => {
                 {!editingTaskId && <button onClick={addTask} className="w-full py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 font-medium">➕ Add Task</button>}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Come Back Tab */}
+        {activeSection === 'comeback' && (
+          <div className={`rounded-2xl shadow-2xl p-6 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+            <h2 className={`text-2xl font-serif font-bold mb-6 pb-4 border-b-2 ${darkMode ? 'text-white border-gray-600' : 'text-indigo-900 border-gray-200'}`}>🔄 Come Back Later</h2>
+            
+            <div className="mb-4 p-4 bg-amber-50 border-l-4 border-amber-500 rounded-r-lg">
+              <p className="text-amber-800 text-sm">Tasks here will automatically move back to the <strong>Tasks</strong> tab on their scheduled date.</p>
+            </div>
+
+            <div className="space-y-4">
+              {comeBackTasks.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="text-5xl mb-4">📅</div>
+                  <p className={darkMode ? 'text-gray-400' : 'text-gray-500'}>No tasks scheduled to come back</p>
+                  <p className={`text-sm mt-2 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>Set a "Come back" date on any task to move it here</p>
+                </div>
+              ) : (
+                comeBackTasks.map(task => {
+                  const daysUntil = getDaysUntilComeBack(task.comeBackDate);
+                  return (
+                    <div key={task.id} className={`border rounded-xl p-4 ${task.urgent ? 'bg-yellow-50 border-yellow-400' : 'bg-white'}`}>
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex gap-2 flex-wrap items-center">
+                          <span className="px-3 py-1 rounded-md text-xs font-semibold bg-amber-100 text-amber-800">
+                            📅 {formatComeBackDate(task.comeBackDate)}
+                            {daysUntil === 1 ? ' (Tomorrow!)' : daysUntil <= 7 ? ` (${daysUntil} days)` : ''}
+                          </span>
+                          <span className={`px-3 py-1 rounded-md text-xs font-semibold uppercase ${getBadgeClass('category', task.category)}`}>{task.category}</span>
+                          <span className={`px-3 py-1 rounded-md text-xs font-semibold uppercase ${getBadgeClass('tag', task.tag)}`}>{task.tag}</span>
+                        </div>
+                        <div className="flex gap-1">
+                          <button onClick={() => startEditTask(task)} className="w-7 h-7 bg-blue-100 hover:bg-blue-200 rounded flex items-center justify-center text-xs">✏️</button>
+                          <button onClick={() => clearComeBackDate(task.id)} className="w-7 h-7 bg-green-100 hover:bg-green-200 rounded flex items-center justify-center text-xs" title="Bring back now">↩️</button>
+                          <button onClick={() => deleteTask(task.id)} className="w-7 h-7 bg-gray-100 hover:bg-red-100 rounded flex items-center justify-center">×</button>
+                        </div>
+                      </div>
+                      <p className="text-sm mb-2">{renderDescription(task.description)}</p>
+                      
+                      {/* Change come back date */}
+                      <div className="mt-3 flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-semibold text-gray-600">Change date:</span>
+                        <input 
+                          type="date" 
+                          value={task.comeBackDate || ''} 
+                          onChange={(e) => setComeBackDate(task.id, e.target.value)}
+                          className="px-2 py-1 border rounded text-xs"
+                          min={new Date().toISOString().split('T')[0]}
+                        />
+                      </div>
+                      
+                      {/* Notes preview */}
+                      {(safeString(task.notesDrK) || safeString(task.notesAthena)) && (
+                        <div className="mt-3 space-y-1">
+                          {safeString(task.notesDrK) && <div className="p-2 bg-blue-50 border border-blue-200 rounded text-xs">👨‍⚕️ {task.notesDrK.substring(0, 100)}{task.notesDrK.length > 100 ? '...' : ''}</div>}
+                          {safeString(task.notesAthena) && <div className="p-2 bg-purple-50 border border-purple-200 rounded text-xs">👩‍💼 {task.notesAthena.substring(0, 100)}{task.notesAthena.length > 100 ? '...' : ''}</div>}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Summary */}
+            {comeBackTasks.length > 0 && (
+              <div className="mt-6 p-4 bg-gray-100 rounded-lg">
+                <div className="text-sm text-gray-600">
+                  <strong>{comeBackTasks.length}</strong> task{comeBackTasks.length !== 1 ? 's' : ''} scheduled to come back
+                  {comeBackTasks.filter(t => getDaysUntilComeBack(t.comeBackDate) <= 7).length > 0 && (
+                    <span className="ml-2 text-amber-600">• {comeBackTasks.filter(t => getDaysUntilComeBack(t.comeBackDate) <= 7).length} within the next week</span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
