@@ -272,7 +272,7 @@ const DailyTaskTracker = ({ onLogout }) => {
     comeBackDate: ''
   });
 
-  const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbyPa0VPNzHy5SU-_XYuJwgf9sXmd2CukCxtQPdDIXPBI3rfQWLTfJnAIzQTJom_0P-FvQ/exec';
+  const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycby3K1Nd_gXwJ5s1aeTctiXW2YU3IkyW_cy9aWrs857YWbc3GhK9khYvRIEEPmp43ntZLg/exec';
 
   useEffect(() => { loadTasksFromStorage(); }, []);
   
@@ -446,27 +446,6 @@ const DailyTaskTracker = ({ onLogout }) => {
       return editingNotes[task.id][noteType];
     }
     return safeString(task[noteType]);
-  };
-
-  // Inline email link editing (blur-save pattern like notes)
-  const [editingEmails, setEditingEmails] = useState({});
-
-  const updateLocalEmail = (id, value) => {
-    setEditingEmails(prev => ({ ...prev, [id]: value }));
-  };
-
-  const saveEmailOnBlur = async (id) => {
-    const emailValue = editingEmails[id];
-    if (emailValue === undefined) return;
-    const updatedTasks = tasks.map(t => t.id === id ? { ...t, emailLink: emailValue } : t);
-    setTasks(updatedTasks);
-    await saveTasksToStorage(updatedTasks);
-    setEditingEmails(prev => { const n = { ...prev }; delete n[id]; return n; });
-  };
-
-  const getEmailValue = (task) => {
-    if (editingEmails[task.id] !== undefined) return editingEmails[task.id];
-    return safeString(task.emailLink);
   };
 
   const toggleUrgent = async (id) => {
@@ -914,8 +893,8 @@ const DailyTaskTracker = ({ onLogout }) => {
                 </div>
               </div>
               <div className="p-4 bg-blue-50 border-l-4 border-blue-500 rounded-r-lg">
-                <h3 className="font-bold text-blue-900">💾 Notes & Email Links Save Automatically</h3>
-                <p className="text-blue-800 mt-1">Notes and the 📧 email link field save when you <strong>click outside</strong> the field. Paste a Gmail URL and an <strong>Open ↗</strong> button will appear.</p>
+                <h3 className="font-bold text-blue-900">💾 Notes Save Automatically</h3>
+                <p className="text-blue-800 mt-1">Notes save when you <strong>click outside</strong> the text box. This prevents data loss from rapid typing.</p>
               </div>
               <button onClick={generateRecap} className="w-full py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium">✨ Generate Daily Recap</button>
               {recapText && (
