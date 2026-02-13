@@ -309,7 +309,7 @@ const DailyTaskTracker = ({ onLogout }) => {
       notesDrK: safeString(task.notesDrK) || safeString(task.notes),
       notesAthena: safeString(task.notesAthena),
       attachments: Array.isArray(task.attachments) ? task.attachments : [],
-      comeBackDate: safeString(task.comeBackDate) // YYYY-MM-DD format or empty
+      comeBackDate: safeString(task.comeBackDate).split('T')[0] // Handle both "YYYY-MM-DD" and "YYYY-MM-DDT00:00:00.000Z"
     };
   };
 
@@ -331,12 +331,16 @@ const DailyTaskTracker = ({ onLogout }) => {
     setSaveError(null);
     try {
       const response = await fetch(SHEETS_API_URL + '?action=getTasks');
-      const data = await response.json();
+      const text = await response.text();
+      let data;
+      try { data = JSON.parse(text); } catch(e) { 
+        console.error('Invalid JSON response:', text.substring(0, 200));
+        throw new Error('Invalid response from server');
+      }
       if (data.success && data.tasks && Array.isArray(data.tasks) && data.tasks.length > 0) {
         const normalizedTasks = data.tasks.map(normalizeTask).filter(t => t !== null);
         const uniqueTasks = removeDuplicateTasks(normalizedTasks);
         setTasks(uniqueTasks);
-        // Backup on successful load
         try { localStorage.setItem('tasks-backup-latest', JSON.stringify(uniqueTasks)); } catch (e) {}
       } else { 
         setTasks([]); 
@@ -344,7 +348,6 @@ const DailyTaskTracker = ({ onLogout }) => {
     } catch (error) {
       console.error('Load error:', error);
       setSaveError('Failed to load. Click Sync.');
-      // Try restore from backup
       const backup = localStorage.getItem('tasks-backup-latest');
       if (backup) {
         try {
@@ -446,6 +449,27 @@ const DailyTaskTracker = ({ onLogout }) => {
       return editingNotes[task.id][noteType];
     }
     return safeString(task[noteType]);
+  };
+
+  // Inline email link editing (blur-save pattern like notes)
+  const [editingEmails, setEditingEmails] = useState({});
+
+  const updateLocalEmail = (id, value) => {
+    setEditingEmails(prev => ({ ...prev, [id]: value }));
+  };
+
+  const saveEmailOnBlur = async (id) => {
+    const emailValue = editingEmails[id];
+    if (emailValue === undefined) return;
+    const updatedTasks = tasks.map(t => t.id === id ? { ...t, emailLink: emailValue } : t);
+    setTasks(updatedTasks);
+    await saveTasksToStorage(updatedTasks);
+    setEditingEmails(prev => { const n = { ...prev }; delete n[id]; return n; });
+  };
+
+  const getEmailValue = (task) => {
+    if (editingEmails[task.id] !== undefined) return editingEmails[task.id];
+    return safeString(task.emailLink);
   };
 
   const toggleUrgent = async (id) => {
