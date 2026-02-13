@@ -448,6 +448,27 @@ const DailyTaskTracker = ({ onLogout }) => {
     return safeString(task[noteType]);
   };
 
+  // Inline email link editing (blur-save pattern like notes)
+  const [editingEmails, setEditingEmails] = useState({});
+
+  const updateLocalEmail = (id, value) => {
+    setEditingEmails(prev => ({ ...prev, [id]: value }));
+  };
+
+  const saveEmailOnBlur = async (id) => {
+    const emailValue = editingEmails[id];
+    if (emailValue === undefined) return;
+    const updatedTasks = tasks.map(t => t.id === id ? { ...t, emailLink: emailValue } : t);
+    setTasks(updatedTasks);
+    await saveTasksToStorage(updatedTasks);
+    setEditingEmails(prev => { const n = { ...prev }; delete n[id]; return n; });
+  };
+
+  const getEmailValue = (task) => {
+    if (editingEmails[task.id] !== undefined) return editingEmails[task.id];
+    return safeString(task.emailLink);
+  };
+
   const toggleUrgent = async (id) => {
     const updatedTasks = tasks.map(t => t.id === id ? { ...t, urgent: !t.urgent } : t);
     setTasks(updatedTasks);
@@ -893,8 +914,8 @@ const DailyTaskTracker = ({ onLogout }) => {
                 </div>
               </div>
               <div className="p-4 bg-blue-50 border-l-4 border-blue-500 rounded-r-lg">
-                <h3 className="font-bold text-blue-900">💾 Notes Save Automatically</h3>
-                <p className="text-blue-800 mt-1">Notes save when you <strong>click outside</strong> the text box. This prevents data loss from rapid typing.</p>
+                <h3 className="font-bold text-blue-900">💾 Notes & Email Links Save Automatically</h3>
+                <p className="text-blue-800 mt-1">Notes and the 📧 email link field save when you <strong>click outside</strong> the field. Paste a Gmail URL and an <strong>Open ↗</strong> button will appear.</p>
               </div>
               <button onClick={generateRecap} className="w-full py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium">✨ Generate Daily Recap</button>
               {recapText && (
@@ -972,9 +993,21 @@ const DailyTaskTracker = ({ onLogout }) => {
                               </div>
                               <p className={`text-sm mb-2 ${task.completed ? 'line-through' : ''}`}>{renderDescription(task.description)}</p>
                               
-                              {safeString(task.emailLink).startsWith('http') && (
-                                <button onClick={() => openEmailLink(task.emailLink)} className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold rounded-lg mt-2">📧 View Email</button>
-                              )}
+                              {/* Email Link - Always visible */}
+                              <div className="mt-2 flex items-center gap-2">
+                                <span className="text-sm">📧</span>
+                                <input 
+                                  type="text"
+                                  value={getEmailValue(task)}
+                                  onChange={(e) => updateLocalEmail(task.id, e.target.value)}
+                                  onBlur={() => saveEmailOnBlur(task.id)}
+                                  placeholder="Paste email link here..."
+                                  className="flex-1 px-2 py-1 border border-gray-200 rounded text-xs bg-white focus:border-blue-400 focus:ring-1 focus:ring-blue-200 outline-none"
+                                />
+                                {safeString(getEmailValue(task)).startsWith('http') && (
+                                  <button onClick={() => openEmailLink(getEmailValue(task))} className="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold rounded whitespace-nowrap">Open ↗</button>
+                                )}
+                              </div>
                               
                               {/* Come Back Date Picker */}
                               <div className="mt-3 flex items-center gap-2 flex-wrap">
@@ -1099,6 +1132,22 @@ const DailyTaskTracker = ({ onLogout }) => {
                       </div>
                       <p className="text-sm mb-2">{renderDescription(task.description)}</p>
                       
+                      {/* Email Link - Always visible */}
+                      <div className="mt-2 flex items-center gap-2">
+                        <span className="text-sm">📧</span>
+                        <input 
+                          type="text"
+                          value={getEmailValue(task)}
+                          onChange={(e) => updateLocalEmail(task.id, e.target.value)}
+                          onBlur={() => saveEmailOnBlur(task.id)}
+                          placeholder="Paste email link here..."
+                          className="flex-1 px-2 py-1 border border-gray-200 rounded text-xs bg-white focus:border-blue-400 focus:ring-1 focus:ring-blue-200 outline-none"
+                        />
+                        {safeString(getEmailValue(task)).startsWith('http') && (
+                          <button onClick={() => openEmailLink(getEmailValue(task))} className="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold rounded whitespace-nowrap">Open ↗</button>
+                        )}
+                      </div>
+
                       {/* Change come back date */}
                       <div className="mt-3 flex items-center gap-2 flex-wrap">
                         <span className="text-xs font-semibold text-gray-600">Change date:</span>
