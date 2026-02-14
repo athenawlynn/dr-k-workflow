@@ -200,20 +200,46 @@ const DailyTaskTracker = ({ onLogout }) => {
     return filtered.sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
   };
 
-  const addContact = () => {
-    if (!contactForm.name.trim()) { alert('Please enter a contact name'); return; }
-    const newContact = { id: Date.now(), ...contactForm };
-    setContacts([newContact, ...contacts]);
-    setContactForm({ category: 'Handyman', name: '', phone: '', email: '', website: '', notes: '' });
-    // Save to localStorage
-    try { localStorage.setItem('contacts-backup', JSON.stringify([newContact, ...contacts])); } catch(e) {}
+  const saveContactsToStorage = async (contactsToSave) => {
+    try { localStorage.setItem('contacts-backup', JSON.stringify(contactsToSave)); } catch(e) {}
+    try {
+      await fetch(SHEETS_API_URL, { method: 'POST', redirect: 'follow', body: JSON.stringify({ type: 'contacts', contacts: contactsToSave }) });
+    } catch(e) { console.error('Contacts save error:', e); }
   };
 
-  const deleteContact = (id) => {
+  const loadContactsFromStorage = async () => {
+    try {
+      const response = await fetch(SHEETS_API_URL + '?action=getContacts');
+      const text = await response.text();
+      let data;
+      try { data = JSON.parse(text); } catch(e) { throw new Error('Invalid response'); }
+      if (data.success && data.contacts && Array.isArray(data.contacts) && data.contacts.length > 0) {
+        setContacts(data.contacts);
+        try { localStorage.setItem('contacts-backup', JSON.stringify(data.contacts)); } catch(e) {}
+      }
+    } catch(e) {
+      console.error('Contacts load error:', e);
+      const backup = localStorage.getItem('contacts-backup');
+      if (backup) {
+        try { const parsed = JSON.parse(backup); if (Array.isArray(parsed) && parsed.length > 0) setContacts(parsed); } catch(e) {}
+      }
+    }
+  };
+
+  const addContact = async () => {
+    if (!contactForm.name.trim()) { alert('Please enter a contact name'); return; }
+    const newContact = { id: Date.now(), ...contactForm };
+    const updated = [newContact, ...contacts];
+    setContacts(updated);
+    setContactForm({ category: 'Handyman', name: '', phone: '', email: '', website: '', notes: '' });
+    await saveContactsToStorage(updated);
+  };
+
+  const deleteContact = async (id) => {
     if (window.confirm('Delete this contact?')) {
       const updated = contacts.filter(c => c.id !== id);
       setContacts(updated);
-      try { localStorage.setItem('contacts-backup', JSON.stringify(updated)); } catch(e) {}
+      await saveContactsToStorage(updated);
     }
   };
 
@@ -229,13 +255,13 @@ const DailyTaskTracker = ({ onLogout }) => {
     });
   };
 
-  const saveEditContact = () => {
+  const saveEditContact = async () => {
     if (!contactForm.name.trim()) { alert('Please enter a contact name'); return; }
     const updated = contacts.map(c => c.id === editingContactId ? { ...c, ...contactForm } : c);
     setContacts(updated);
     setEditingContactId(null);
     setContactForm({ category: 'Handyman', name: '', phone: '', email: '', website: '', notes: '' });
-    try { localStorage.setItem('contacts-backup', JSON.stringify(updated)); } catch(e) {}
+    await saveContactsToStorage(updated);
   };
 
   const cancelEditContact = () => {
@@ -243,18 +269,8 @@ const DailyTaskTracker = ({ onLogout }) => {
     setContactForm({ category: 'Handyman', name: '', phone: '', email: '', website: '', notes: '' });
   };
 
-  // Load contacts from localStorage on mount
-  useEffect(() => {
-    const saved = localStorage.getItem('contacts-backup');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setContacts(parsed);
-        }
-      } catch(e) {}
-    }
-  }, []);
+  // Load contacts from Google Sheets on mount
+  useEffect(() => { loadContactsFromStorage(); }, []);
   
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('darkMode');
@@ -272,7 +288,7 @@ const DailyTaskTracker = ({ onLogout }) => {
     comeBackDate: ''
   });
 
-  const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycby3K1Nd_gXwJ5s1aeTctiXW2YU3IkyW_cy9aWrs857YWbc3GhK9khYvRIEEPmp43ntZLg/exec';
+  const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbwwQdAcaQbcvG4rBOwF7Adr0JM7Y1DtsruQmWS9Xlwi8TwcM725BUgPDY57m86SwIOhFA/exec';
 
   useEffect(() => { loadTasksFromStorage(); }, []);
   
