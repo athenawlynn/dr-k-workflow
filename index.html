@@ -472,6 +472,12 @@ const DailyTaskTracker = ({ onLogout }) => {
     return safeString(task.emailLink);
   };
 
+  // Track which tasks have notes expanded
+  const [expandedNotes, setExpandedNotes] = useState({});
+  const toggleNotes = (id) => setExpandedNotes(prev => ({ ...prev, [id]: !prev[id] }));
+  const hasNotes = (task) => safeString(task.notesDrK).trim() || safeString(task.notesAthena).trim();
+  const isNotesExpanded = (task) => expandedNotes[task.id] || false;
+
   const toggleUrgent = async (id) => {
     const updatedTasks = tasks.map(t => t.id === id ? { ...t, urgent: !t.urgent } : t);
     setTasks(updatedTasks);
@@ -1032,28 +1038,38 @@ const DailyTaskTracker = ({ onLogout }) => {
                                 )}
                               </div>
                               
-                              {/* Notes - Always visible */}
-                              <div className="mt-4 pt-4 border-t-2 space-y-3">
-                                <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3">
-                                  <label className="block text-xs font-bold text-blue-800 uppercase mb-2">👨‍⚕️ Dr. K's Notes</label>
-                                  <textarea 
-                                    value={getNoteValue(task, 'notesDrK')} 
-                                    onChange={(e) => updateLocalNote(task.id, 'notesDrK', e.target.value)} 
-                                    onBlur={() => saveNoteOnBlur(task.id, 'notesDrK')}
-                                    placeholder="Dr. Koch's comments..." 
-                                    className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg text-sm min-h-16 bg-white" 
-                                  />
-                                </div>
-                                <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-3">
-                                  <label className="block text-xs font-bold text-purple-800 uppercase mb-2">👩‍💼 Athena's Notes</label>
-                                  <textarea 
-                                    value={getNoteValue(task, 'notesAthena')} 
-                                    onChange={(e) => updateLocalNote(task.id, 'notesAthena', e.target.value)} 
-                                    onBlur={() => saveNoteOnBlur(task.id, 'notesAthena')}
-                                    placeholder="Athena's updates..." 
-                                    className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg text-sm min-h-16 bg-white" 
-                                  />
-                                </div>
+                              {/* Notes - Collapsible */}
+                              <div className="mt-4 pt-4 border-t-2">
+                                <button 
+                                  onClick={() => toggleNotes(task.id)} 
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${hasNotes(task) ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                                >
+                                  📝 Notes {hasNotes(task) ? '(has notes)' : ''} {isNotesExpanded(task) ? '▲' : '▼'}
+                                </button>
+                                {isNotesExpanded(task) && (
+                                  <div className="mt-3 space-y-3">
+                                    <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3">
+                                      <label className="block text-xs font-bold text-blue-800 uppercase mb-2">👨‍⚕️ Dr. K's Notes</label>
+                                      <textarea 
+                                        value={getNoteValue(task, 'notesDrK')} 
+                                        onChange={(e) => updateLocalNote(task.id, 'notesDrK', e.target.value)} 
+                                        onBlur={() => saveNoteOnBlur(task.id, 'notesDrK')}
+                                        placeholder="Dr. Koch's comments..." 
+                                        className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg text-sm min-h-16 bg-white" 
+                                      />
+                                    </div>
+                                    <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-3">
+                                      <label className="block text-xs font-bold text-purple-800 uppercase mb-2">👩‍💼 Athena's Notes</label>
+                                      <textarea 
+                                        value={getNoteValue(task, 'notesAthena')} 
+                                        onChange={(e) => updateLocalNote(task.id, 'notesAthena', e.target.value)} 
+                                        onBlur={() => saveNoteOnBlur(task.id, 'notesAthena')}
+                                        placeholder="Athena's updates..." 
+                                        className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg text-sm min-h-16 bg-white" 
+                                      />
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             </>
                           )}
@@ -1190,13 +1206,39 @@ const DailyTaskTracker = ({ onLogout }) => {
                         />
                       </div>
                       
-                      {/* Notes preview */}
-                      {(safeString(task.notesDrK) || safeString(task.notesAthena)) && (
-                        <div className="mt-3 space-y-1">
-                          {safeString(task.notesDrK) && <div className="p-2 bg-blue-50 border border-blue-200 rounded text-xs">👨‍⚕️ {task.notesDrK.substring(0, 100)}{task.notesDrK.length > 100 ? '...' : ''}</div>}
-                          {safeString(task.notesAthena) && <div className="p-2 bg-purple-50 border border-purple-200 rounded text-xs">👩‍💼 {task.notesAthena.substring(0, 100)}{task.notesAthena.length > 100 ? '...' : ''}</div>}
-                        </div>
-                      )}
+                      {/* Notes - Collapsible */}
+                      <div className="mt-3">
+                        <button 
+                          onClick={() => toggleNotes(task.id)} 
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${hasNotes(task) ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                        >
+                          📝 Notes {hasNotes(task) ? '(has notes)' : ''} {isNotesExpanded(task) ? '▲' : '▼'}
+                        </button>
+                        {isNotesExpanded(task) && (
+                          <div className="mt-3 space-y-3">
+                            <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3">
+                              <label className="block text-xs font-bold text-blue-800 uppercase mb-2">👨‍⚕️ Dr. K's Notes</label>
+                              <textarea 
+                                value={getNoteValue(task, 'notesDrK')} 
+                                onChange={(e) => updateLocalNote(task.id, 'notesDrK', e.target.value)} 
+                                onBlur={() => saveNoteOnBlur(task.id, 'notesDrK')}
+                                placeholder="Dr. Koch's comments..." 
+                                className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg text-sm min-h-16 bg-white" 
+                              />
+                            </div>
+                            <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-3">
+                              <label className="block text-xs font-bold text-purple-800 uppercase mb-2">👩‍💼 Athena's Notes</label>
+                              <textarea 
+                                value={getNoteValue(task, 'notesAthena')} 
+                                onChange={(e) => updateLocalNote(task.id, 'notesAthena', e.target.value)} 
+                                onBlur={() => saveNoteOnBlur(task.id, 'notesAthena')}
+                                placeholder="Athena's updates..." 
+                                className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg text-sm min-h-16 bg-white" 
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
                         </>
                       )}
                     </div>
