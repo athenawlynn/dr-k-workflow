@@ -309,7 +309,7 @@ const DailyTaskTracker = ({ onLogout }) => {
       notesDrK: safeString(task.notesDrK) || safeString(task.notes),
       notesAthena: safeString(task.notesAthena),
       attachments: Array.isArray(task.attachments) ? task.attachments : [],
-      comeBackDate: safeString(task.comeBackDate).split('T')[0] // Handle both "YYYY-MM-DD" and "YYYY-MM-DDT00:00:00.000Z"
+      comeBackDate: safeString(task.comeBackDate).split('T')[0] // Handle timestamps from Sheets
     };
   };
 
@@ -333,14 +333,12 @@ const DailyTaskTracker = ({ onLogout }) => {
       const response = await fetch(SHEETS_API_URL + '?action=getTasks');
       const text = await response.text();
       let data;
-      try { data = JSON.parse(text); } catch(e) { 
-        console.error('Invalid JSON response:', text.substring(0, 200));
-        throw new Error('Invalid response from server');
-      }
+      try { data = JSON.parse(text); } catch(e) { throw new Error('Invalid response'); }
       if (data.success && data.tasks && Array.isArray(data.tasks) && data.tasks.length > 0) {
         const normalizedTasks = data.tasks.map(normalizeTask).filter(t => t !== null);
         const uniqueTasks = removeDuplicateTasks(normalizedTasks);
         setTasks(uniqueTasks);
+        // Backup on successful load
         try { localStorage.setItem('tasks-backup-latest', JSON.stringify(uniqueTasks)); } catch (e) {}
       } else { 
         setTasks([]); 
@@ -348,6 +346,7 @@ const DailyTaskTracker = ({ onLogout }) => {
     } catch (error) {
       console.error('Load error:', error);
       setSaveError('Failed to load. Click Sync.');
+      // Try restore from backup
       const backup = localStorage.getItem('tasks-backup-latest');
       if (backup) {
         try {
@@ -451,13 +450,9 @@ const DailyTaskTracker = ({ onLogout }) => {
     return safeString(task[noteType]);
   };
 
-  // Inline email link editing (blur-save pattern like notes)
+  // Inline email link editing (blur-save like notes)
   const [editingEmails, setEditingEmails] = useState({});
-
-  const updateLocalEmail = (id, value) => {
-    setEditingEmails(prev => ({ ...prev, [id]: value }));
-  };
-
+  const updateLocalEmail = (id, value) => { setEditingEmails(prev => ({ ...prev, [id]: value })); };
   const saveEmailOnBlur = async (id) => {
     const emailValue = editingEmails[id];
     if (emailValue === undefined) return;
@@ -466,17 +461,15 @@ const DailyTaskTracker = ({ onLogout }) => {
     await saveTasksToStorage(updatedTasks);
     setEditingEmails(prev => { const n = { ...prev }; delete n[id]; return n; });
   };
-
   const getEmailValue = (task) => {
     if (editingEmails[task.id] !== undefined) return editingEmails[task.id];
     return safeString(task.emailLink);
   };
 
-  // Track which tasks have notes expanded
+  // Notes expand/collapse
   const [expandedNotes, setExpandedNotes] = useState({});
   const toggleNotes = (id) => setExpandedNotes(prev => ({ ...prev, [id]: !prev[id] }));
-  const hasNotes = (task) => safeString(task.notesDrK).trim() || safeString(task.notesAthena).trim();
-  const isNotesExpanded = (task) => expandedNotes[task.id] || false;
+  const hasNotes = (task) => !!(safeString(task.notesDrK).trim() || safeString(task.notesAthena).trim());
 
   const toggleUrgent = async (id) => {
     const updatedTasks = tasks.map(t => t.id === id ? { ...t, urgent: !t.urgent } : t);
@@ -1040,33 +1033,18 @@ const DailyTaskTracker = ({ onLogout }) => {
                               
                               {/* Notes - Collapsible */}
                               <div className="mt-4 pt-4 border-t-2">
-                                <button 
-                                  onClick={() => toggleNotes(task.id)} 
-                                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${hasNotes(task) ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-                                >
-                                  📝 Notes {hasNotes(task) ? '(has notes)' : ''} {isNotesExpanded(task) ? '▲' : '▼'}
+                                <button onClick={() => toggleNotes(task.id)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${hasNotes(task) ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                                  📝 Notes {hasNotes(task) ? '(has notes)' : ''} {expandedNotes[task.id] ? '▲' : '▼'}
                                 </button>
-                                {isNotesExpanded(task) && (
+                                {expandedNotes[task.id] && (
                                   <div className="mt-3 space-y-3">
                                     <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3">
                                       <label className="block text-xs font-bold text-blue-800 uppercase mb-2">👨‍⚕️ Dr. K's Notes</label>
-                                      <textarea 
-                                        value={getNoteValue(task, 'notesDrK')} 
-                                        onChange={(e) => updateLocalNote(task.id, 'notesDrK', e.target.value)} 
-                                        onBlur={() => saveNoteOnBlur(task.id, 'notesDrK')}
-                                        placeholder="Dr. Koch's comments..." 
-                                        className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg text-sm min-h-16 bg-white" 
-                                      />
+                                      <textarea value={getNoteValue(task, 'notesDrK')} onChange={(e) => updateLocalNote(task.id, 'notesDrK', e.target.value)} onBlur={() => saveNoteOnBlur(task.id, 'notesDrK')} placeholder="Dr. Koch's comments..." className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg text-sm min-h-16 bg-white" />
                                     </div>
                                     <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-3">
                                       <label className="block text-xs font-bold text-purple-800 uppercase mb-2">👩‍💼 Athena's Notes</label>
-                                      <textarea 
-                                        value={getNoteValue(task, 'notesAthena')} 
-                                        onChange={(e) => updateLocalNote(task.id, 'notesAthena', e.target.value)} 
-                                        onBlur={() => saveNoteOnBlur(task.id, 'notesAthena')}
-                                        placeholder="Athena's updates..." 
-                                        className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg text-sm min-h-16 bg-white" 
-                                      />
+                                      <textarea value={getNoteValue(task, 'notesAthena')} onChange={(e) => updateLocalNote(task.id, 'notesAthena', e.target.value)} onBlur={() => saveNoteOnBlur(task.id, 'notesAthena')} placeholder="Athena's updates..." className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg text-sm min-h-16 bg-white" />
                                     </div>
                                   </div>
                                 )}
@@ -1181,14 +1159,7 @@ const DailyTaskTracker = ({ onLogout }) => {
                       {/* Email Link - Always visible */}
                       <div className="mt-2 flex items-center gap-2">
                         <span className="text-sm">📧</span>
-                        <input 
-                          type="text"
-                          value={getEmailValue(task)}
-                          onChange={(e) => updateLocalEmail(task.id, e.target.value)}
-                          onBlur={() => saveEmailOnBlur(task.id)}
-                          placeholder="Paste email link here..."
-                          className="flex-1 px-2 py-1 border border-gray-200 rounded text-xs bg-white focus:border-blue-400 focus:ring-1 focus:ring-blue-200 outline-none"
-                        />
+                        <input type="text" value={getEmailValue(task)} onChange={(e) => updateLocalEmail(task.id, e.target.value)} onBlur={() => saveEmailOnBlur(task.id)} placeholder="Paste email link here..." className="flex-1 px-2 py-1 border border-gray-200 rounded text-xs bg-white focus:border-blue-400 focus:ring-1 focus:ring-blue-200 outline-none" />
                         {safeString(getEmailValue(task)).startsWith('http') && (
                           <button onClick={() => openEmailLink(getEmailValue(task))} className="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold rounded whitespace-nowrap">Open ↗</button>
                         )}
@@ -1197,44 +1168,23 @@ const DailyTaskTracker = ({ onLogout }) => {
                       {/* Change come back date */}
                       <div className="mt-3 flex items-center gap-2 flex-wrap">
                         <span className="text-xs font-semibold text-gray-600">Change date:</span>
-                        <input 
-                          type="date" 
-                          value={task.comeBackDate || ''} 
-                          onChange={(e) => setComeBackDate(task.id, e.target.value)}
-                          className="px-2 py-1 border rounded text-xs"
-                          min={new Date().toISOString().split('T')[0]}
-                        />
+                        <input type="date" value={task.comeBackDate || ''} onChange={(e) => setComeBackDate(task.id, e.target.value)} className="px-2 py-1 border rounded text-xs" min={new Date().toISOString().split('T')[0]} />
                       </div>
                       
                       {/* Notes - Collapsible */}
                       <div className="mt-3">
-                        <button 
-                          onClick={() => toggleNotes(task.id)} 
-                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${hasNotes(task) ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-                        >
-                          📝 Notes {hasNotes(task) ? '(has notes)' : ''} {isNotesExpanded(task) ? '▲' : '▼'}
+                        <button onClick={() => toggleNotes(task.id)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${hasNotes(task) ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                          📝 Notes {hasNotes(task) ? '(has notes)' : ''} {expandedNotes[task.id] ? '▲' : '▼'}
                         </button>
-                        {isNotesExpanded(task) && (
+                        {expandedNotes[task.id] && (
                           <div className="mt-3 space-y-3">
                             <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3">
                               <label className="block text-xs font-bold text-blue-800 uppercase mb-2">👨‍⚕️ Dr. K's Notes</label>
-                              <textarea 
-                                value={getNoteValue(task, 'notesDrK')} 
-                                onChange={(e) => updateLocalNote(task.id, 'notesDrK', e.target.value)} 
-                                onBlur={() => saveNoteOnBlur(task.id, 'notesDrK')}
-                                placeholder="Dr. Koch's comments..." 
-                                className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg text-sm min-h-16 bg-white" 
-                              />
+                              <textarea value={getNoteValue(task, 'notesDrK')} onChange={(e) => updateLocalNote(task.id, 'notesDrK', e.target.value)} onBlur={() => saveNoteOnBlur(task.id, 'notesDrK')} placeholder="Dr. Koch's comments..." className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg text-sm min-h-16 bg-white" />
                             </div>
                             <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-3">
                               <label className="block text-xs font-bold text-purple-800 uppercase mb-2">👩‍💼 Athena's Notes</label>
-                              <textarea 
-                                value={getNoteValue(task, 'notesAthena')} 
-                                onChange={(e) => updateLocalNote(task.id, 'notesAthena', e.target.value)} 
-                                onBlur={() => saveNoteOnBlur(task.id, 'notesAthena')}
-                                placeholder="Athena's updates..." 
-                                className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg text-sm min-h-16 bg-white" 
-                              />
+                              <textarea value={getNoteValue(task, 'notesAthena')} onChange={(e) => updateLocalNote(task.id, 'notesAthena', e.target.value)} onBlur={() => saveNoteOnBlur(task.id, 'notesAthena')} placeholder="Athena's updates..." className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg text-sm min-h-16 bg-white" />
                             </div>
                           </div>
                         )}
