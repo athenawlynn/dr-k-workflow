@@ -644,6 +644,8 @@ const DailyTaskTracker = ({ onLogout }) => {
                 <span className="text-gray-500">Total: {tasks.length}</span>
               </div>
             </div>
+            <div className="flex gap-3 items-center flex-wrap">
+              {isSaving && <span className="text-sm text-yellow-600">⏳ Saving...</span>}
               {lastSaveTime && !isSaving && !saveError && <span className="text-xs text-green-600">✓ Saved {lastSaveTime}</span>}
               {saveError && (<div className="flex items-center gap-2"><span className="text-xs text-red-600">⚠️ {saveError}</span><button onClick={restoreFromBackup} className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200">Restore</button></div>)}
               <button onClick={loadTasksFromStorage} disabled={isLoading} className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50">{isLoading ? '⏳' : '🔄'} Sync</button>
