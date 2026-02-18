@@ -372,12 +372,10 @@ const DailyTaskTracker = ({ onLogout }) => {
   const openEmailLink = (url) => {
     let link = safeString(url).trim();
     if (!link) return;
-    // Strip angle brackets if present: <msgid@domain>
-    if (link.startsWith('<') && link.endsWith('>')) {
-      link = link.slice(1, -1);
-    }
-    // If it looks like a Message-ID (has @ but isn't a URL), build Gmail search URL
-    if (!link.startsWith('http') && link.includes('@')) {
+    // Strip angle brackets if present
+    if (link.startsWith('<') && link.endsWith('>')) link = link.slice(1, -1).trim();
+    // If it looks like a Message-ID (has @ and dot, not a full URL), build Gmail search URL
+    if (!link.startsWith('http') && link.includes('@') && link.includes('.') && !link.includes(' ')) {
       link = `https://mail.google.com/mail/u/0/#search/rfc822msgid:${encodeURIComponent(link)}`;
     }
     if (link.startsWith('http')) {
@@ -388,9 +386,12 @@ const DailyTaskTracker = ({ onLogout }) => {
   // Helper: does the email field have something openable?
   const isOpenable = (val) => {
     let link = safeString(val).trim();
-    if (!link) return false;
-    if (link.startsWith('<') && link.endsWith('>')) link = link.slice(1, -1);
-    return link.startsWith('http') || link.includes('@');
+    if (!link || link.length < 3) return false;
+    if (link.startsWith('<') && link.endsWith('>')) link = link.slice(1, -1).trim();
+    if (link.startsWith('http')) return true;
+    // Message-ID: has @ and a dot, no spaces
+    if (link.includes('@') && link.includes('.') && !link.includes(' ')) return true;
+    return false;
   };
 
   const addTravelEntry = () => {
@@ -665,7 +666,7 @@ const DailyTaskTracker = ({ onLogout }) => {
               <button onClick={generateRecap} className="w-full py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium">✨ Generate Daily Recap</button>
               {recapText && (
                 <div className="space-y-3">
-                  <textarea value={recapText} onChange={(e) => setRecapText(e.target.value)} className="w-full min-h-48 p-3 border rounded-lg text-sm font-mono" />
+                  <textarea value={recapText} onChange={(e) => setRecapText(e.target.value)} className="w-full p-3 border rounded-lg text-sm font-mono resize-y" style={{minHeight: '300px', fontFamily: 'monospace', fontSize: '13px', lineHeight: '1.6', whiteSpace: 'pre'}} />
                   <button onClick={() => { navigator.clipboard.writeText(recapText); alert('Copied!'); }} className="w-full py-2 bg-amber-500 text-white rounded-lg">📋 Copy</button>
                 </div>
               )}
