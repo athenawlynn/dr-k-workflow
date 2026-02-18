@@ -483,9 +483,34 @@ const DailyTaskTracker = ({ onLogout }) => {
 
   const generateRecap = () => {
     if (tasks.length === 0) { alert('No tasks to recap.'); return; }
-    const sections = { "THIS WEEK'S PROJECTS": tasks.filter(t => t.tag === "This Week's Projects"), "REAL ESTATE": tasks.filter(t => t.tag === 'Real Estate'), "DR. RESPONSE": tasks.filter(t => t.tag === 'Dr. Response'), "OFFICE": tasks.filter(t => t.tag === 'Office'), "FINANCE": tasks.filter(t => t.tag === 'Finance'), "TRAVEL": tasks.filter(t => t.tag === 'Travel'), "PERSONAL": tasks.filter(t => t.tag === 'Personal'), "OTHER": tasks.filter(t => !["This Week's Projects", 'Real Estate', 'Dr. Response', 'Office', 'Finance', 'Travel', 'Personal'].includes(t.tag)) };
-    let recap = `DAILY RECAP – ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}\n\n`;
-    Object.entries(sections).forEach(([name, items]) => { if (items.length > 0) { recap += `${name}\n`; items.filter(t => !t.completed).forEach(t => { recap += `• [${t.category}] ${safeString(t.description).substring(0, 100)}${safeString(t.description).length > 100 ? '...' : ''}\n`; }); recap += `\n`; } });
+    const today = new Date();
+    const dateStr = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+    // Add ordinal suffix to day
+    const day = today.getDate();
+    const suffix = day % 10 === 1 && day !== 11 ? 'st' : day % 10 === 2 && day !== 12 ? 'nd' : day % 10 === 3 && day !== 13 ? 'rd' : 'th';
+    const formattedDate = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long' }) + ' ' + day + suffix;
+
+    const sectionOrder = [
+      ["THIS WEEK'S PROJECTS", tasks.filter(t => t.tag === "This Week's Projects" && !t.completed)],
+      ["REAL ESTATE", tasks.filter(t => t.tag === 'Real Estate' && !t.completed)],
+      ["DR. RESPONSE", tasks.filter(t => t.tag === 'Dr. Response' && !t.completed)],
+      ["OFFICE", tasks.filter(t => t.tag === 'Office' && !t.completed)],
+      ["FINANCE", tasks.filter(t => t.tag === 'Finance' && !t.completed)],
+      ["TRAVEL", tasks.filter(t => t.tag === 'Travel' && !t.completed)],
+      ["PERSONAL", tasks.filter(t => t.tag === 'Personal' && !t.completed)],
+      ["OTHER", tasks.filter(t => !["This Week's Projects",'Real Estate','Dr. Response','Office','Finance','Travel','Personal'].includes(t.tag) && !t.completed)]
+    ];
+
+    let recap = `Hi Dr. Koch, here is your Daily Recap for ${formattedDate} in order of action item:\n\n`;
+    sectionOrder.forEach(([name, items]) => {
+      if (items.length > 0) {
+        recap += `${name}\n`;
+        items.forEach(t => {
+          recap += `• [${t.category}] ${safeString(t.description)}\n`;
+        });
+        recap += `\n`;
+      }
+    });
     recap += `---\nTotal: ${tasks.length} | Done: ${tasks.filter(t => t.completed).length} | Remaining: ${tasks.filter(t => !t.completed).length}`;
     setRecapText(recap);
   };
@@ -611,9 +636,14 @@ const DailyTaskTracker = ({ onLogout }) => {
                 <p className={`text-sm italic ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>"{dailyQuote.quote}"</p>
                 <p className={`text-xs font-semibold mt-1 ${darkMode ? 'text-purple-300' : 'text-purple-700'}`}>— {dailyQuote.author}</p>
               </div>
+              <div className={`mt-3 flex gap-4 flex-wrap text-sm font-semibold`}>
+                <span className="text-indigo-700">📋 Active: {getActiveTasks().length}</span>
+                <span className="text-green-600">✓ Done: {tasks.filter(t => t.completed).length}</span>
+                <span className="text-yellow-600">⚡ Urgent: {tasks.filter(t => t.urgent && !t.completed).length}</span>
+                <span className="text-amber-600">🔄 Come Back: {comeBackTasks.length}</span>
+                <span className="text-gray-500">Total: {tasks.length}</span>
+              </div>
             </div>
-            <div className="flex gap-3 items-center flex-wrap">
-              {isSaving && <span className="text-sm text-yellow-600">⏳ Saving...</span>}
               {lastSaveTime && !isSaving && !saveError && <span className="text-xs text-green-600">✓ Saved {lastSaveTime}</span>}
               {saveError && (<div className="flex items-center gap-2"><span className="text-xs text-red-600">⚠️ {saveError}</span><button onClick={restoreFromBackup} className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200">Restore</button></div>)}
               <button onClick={loadTasksFromStorage} disabled={isLoading} className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50">{isLoading ? '⏳' : '🔄'} Sync</button>
@@ -666,7 +696,7 @@ const DailyTaskTracker = ({ onLogout }) => {
               <button onClick={generateRecap} className="w-full py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium">✨ Generate Daily Recap</button>
               {recapText && (
                 <div className="space-y-3">
-                  <textarea value={recapText} onChange={(e) => setRecapText(e.target.value)} className="w-full p-3 border rounded-lg text-sm font-mono resize-y" style={{minHeight: '300px', fontFamily: 'monospace', fontSize: '13px', lineHeight: '1.6', whiteSpace: 'pre'}} />
+                  <textarea value={recapText} onChange={(e) => setRecapText(e.target.value)} style={{minHeight: '400px', fontFamily: '"Courier New", Courier, monospace', fontSize: '13px', lineHeight: '1.7', whiteSpace: 'pre-wrap', wordBreak: 'break-word'}} className="w-full p-4 border-2 border-gray-300 rounded-lg resize-y bg-gray-50" />
                   <button onClick={() => { navigator.clipboard.writeText(recapText); alert('Copied!'); }} className="w-full py-2 bg-amber-500 text-white rounded-lg">📋 Copy</button>
                 </div>
               )}
@@ -979,5 +1009,3 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   </script>
 </body>
 </html>
-HTMLEOF
-echo "done"
