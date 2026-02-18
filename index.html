@@ -376,7 +376,7 @@ const DailyTaskTracker = ({ onLogout }) => {
     if (link.startsWith('<') && link.endsWith('>')) link = link.slice(1, -1).trim();
     // If it looks like a Message-ID (has @ and dot, not a full URL), build Gmail search URL
     if (!link.startsWith('http') && link.includes('@') && link.includes('.') && !link.includes(' ')) {
-      link = `https://mail.google.com/mail/u/0/#search/rfc822msgid:${encodeURIComponent(link)}`;
+      link = `https://mail.google.com/mail/u/1/#search/rfc822msgid:${encodeURIComponent(link)}`;
     }
     if (link.startsWith('http')) {
       window.open(link, '_blank', 'noopener,noreferrer');
