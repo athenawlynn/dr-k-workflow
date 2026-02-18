@@ -592,9 +592,7 @@ const DailyTaskTracker = ({ onLogout }) => {
       <div className="mt-2 flex items-center gap-2">
         <span className="text-sm">📧</span>
         <input type="text" value={getEmailValue(task)} onChange={(e) => updateLocalEmail(task.id, e.target.value)} onBlur={() => saveEmailOnBlur(task.id)} placeholder="Paste email link or Message-ID..." className="flex-1 px-2 py-1 border border-gray-200 rounded text-xs bg-white focus:border-blue-400 focus:ring-1 focus:ring-blue-200 outline-none" />
-        {isOpenable(getEmailValue(task)) && (
-          <button onClick={() => openEmailLink(getEmailValue(task))} className="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold rounded whitespace-nowrap">Open ↗</button>
-        )}
+        <button onClick={() => openEmailLink(getEmailValue(task))} className="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold rounded whitespace-nowrap">Open ↗</button>
       </div>
     </>
   );
