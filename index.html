@@ -372,28 +372,25 @@ const DailyTaskTracker = ({ onLogout }) => {
   const openEmailLink = (url) => {
     let link = safeString(url).trim();
     if (!link) return;
-    // Strip angle brackets if present
-    if (link.startsWith('<') && link.endsWith('>')) link = link.slice(1, -1).trim();
-    // If it's already a full URL, open it directly - no encoding
+    // Strip angle brackets if present: <msgid@domain>
+    if (link.startsWith('<') && link.endsWith('>')) {
+      link = link.slice(1, -1);
+    }
+    // If it looks like a Message-ID (has @ but isn't a URL), build Gmail search URL
+    if (!link.startsWith('http') && link.includes('@')) {
+      link = `https://mail.google.com/mail/u/0/#search/rfc822msgid:${encodeURIComponent(link)}`;
+    }
     if (link.startsWith('http')) {
       window.open(link, '_blank', 'noopener,noreferrer');
-      return;
-    }
-    // If it looks like a raw Message-ID, build the Gmail search URL
-    if (link.includes('@') && link.includes('.') && !link.includes(' ')) {
-      window.open(`https://mail.google.com/mail/u/1/#search/rfc822msgid:${link}`, '_blank', 'noopener,noreferrer');
     }
   };
 
   // Helper: does the email field have something openable?
   const isOpenable = (val) => {
     let link = safeString(val).trim();
-    if (!link || link.length < 3) return false;
-    if (link.startsWith('<') && link.endsWith('>')) link = link.slice(1, -1).trim();
-    if (link.startsWith('http')) return true;
-    // Message-ID: has @ and a dot, no spaces
-    if (link.includes('@') && link.includes('.') && !link.includes(' ')) return true;
-    return false;
+    if (!link) return false;
+    if (link.startsWith('<') && link.endsWith('>')) link = link.slice(1, -1);
+    return link.startsWith('http') || link.includes('@');
   };
 
   const addTravelEntry = () => {
@@ -483,13 +480,11 @@ const DailyTaskTracker = ({ onLogout }) => {
 
   const generateRecap = () => {
     if (tasks.length === 0) { alert('No tasks to recap.'); return; }
+    setRecapText('');
     const today = new Date();
-    const dateStr = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-    // Add ordinal suffix to day
     const day = today.getDate();
     const suffix = day % 10 === 1 && day !== 11 ? 'st' : day % 10 === 2 && day !== 12 ? 'nd' : day % 10 === 3 && day !== 13 ? 'rd' : 'th';
     const formattedDate = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long' }) + ' ' + day + suffix;
-
     const sectionOrder = [
       ["THIS WEEK'S PROJECTS", tasks.filter(t => t.tag === "This Week's Projects" && !t.completed)],
       ["REAL ESTATE", tasks.filter(t => t.tag === 'Real Estate' && !t.completed)],
@@ -500,19 +495,16 @@ const DailyTaskTracker = ({ onLogout }) => {
       ["PERSONAL", tasks.filter(t => t.tag === 'Personal' && !t.completed)],
       ["OTHER", tasks.filter(t => !["This Week's Projects",'Real Estate','Dr. Response','Office','Finance','Travel','Personal'].includes(t.tag) && !t.completed)]
     ];
-
     let recap = `Hi Dr. Koch, here is your Daily Recap for ${formattedDate} in order of action item:\n\n`;
     sectionOrder.forEach(([name, items]) => {
       if (items.length > 0) {
         recap += `${name}\n`;
-        items.forEach(t => {
-          recap += `• [${t.category}] ${safeString(t.description)}\n`;
-        });
+        items.forEach(t => { recap += `• [${t.category}] ${safeString(t.description)}\n`; });
         recap += `\n`;
       }
     });
     recap += `---\nTotal: ${tasks.length} | Done: ${tasks.filter(t => t.completed).length} | Remaining: ${tasks.filter(t => !t.completed).length}`;
-    setRecapText(recap);
+    setTimeout(() => setRecapText(recap), 0);
   };
 
   const groupTasksBySection = (taskList) => {
@@ -619,7 +611,9 @@ const DailyTaskTracker = ({ onLogout }) => {
       <div className="mt-2 flex items-center gap-2">
         <span className="text-sm">📧</span>
         <input type="text" value={getEmailValue(task)} onChange={(e) => updateLocalEmail(task.id, e.target.value)} onBlur={() => saveEmailOnBlur(task.id)} placeholder="Paste email link or Message-ID..." className="flex-1 px-2 py-1 border border-gray-200 rounded text-xs bg-white focus:border-blue-400 focus:ring-1 focus:ring-blue-200 outline-none" />
-        <button onClick={() => openEmailLink(getEmailValue(task))} className="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold rounded whitespace-nowrap">Open ↗</button>
+        {isOpenable(getEmailValue(task)) && (
+          <button onClick={() => openEmailLink(getEmailValue(task))} className="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold rounded whitespace-nowrap">Open ↗</button>
+        )}
       </div>
     </>
   );
@@ -635,13 +629,6 @@ const DailyTaskTracker = ({ onLogout }) => {
               <div className={`mt-3 p-3 rounded-lg border-l-4 ${darkMode ? 'bg-gray-700 border-purple-400' : 'bg-purple-50 border-purple-500'}`}>
                 <p className={`text-sm italic ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>"{dailyQuote.quote}"</p>
                 <p className={`text-xs font-semibold mt-1 ${darkMode ? 'text-purple-300' : 'text-purple-700'}`}>— {dailyQuote.author}</p>
-              </div>
-              <div className={`mt-3 flex gap-4 flex-wrap text-sm font-semibold`}>
-                <span className="text-indigo-700">📋 Active: {getActiveTasks().length}</span>
-                <span className="text-green-600">✓ Done: {tasks.filter(t => t.completed).length}</span>
-                <span className="text-yellow-600">⚡ Urgent: {tasks.filter(t => t.urgent && !t.completed).length}</span>
-                <span className="text-amber-600">🔄 Come Back: {comeBackTasks.length}</span>
-                <span className="text-gray-500">Total: {tasks.length}</span>
               </div>
             </div>
             <div className="flex gap-3 items-center flex-wrap">
@@ -698,7 +685,7 @@ const DailyTaskTracker = ({ onLogout }) => {
               <button onClick={generateRecap} className="w-full py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium">✨ Generate Daily Recap</button>
               {recapText && (
                 <div className="space-y-3">
-                  <textarea value={recapText} onChange={(e) => setRecapText(e.target.value)} style={{minHeight: '400px', fontFamily: '"Courier New", Courier, monospace', fontSize: '13px', lineHeight: '1.7', whiteSpace: 'pre-wrap', wordBreak: 'break-word'}} className="w-full p-4 border-2 border-gray-300 rounded-lg resize-y bg-gray-50" />
+                  <textarea value={recapText} onChange={(e) => setRecapText(e.target.value)} className="w-full min-h-48 p-3 border rounded-lg text-sm font-mono" />
                   <button onClick={() => { navigator.clipboard.writeText(recapText); alert('Copied!'); }} className="w-full py-2 bg-amber-500 text-white rounded-lg">📋 Copy</button>
                 </div>
               )}
@@ -1011,3 +998,5 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   </script>
 </body>
 </html>
+HTMLEOF
+echo "done"
