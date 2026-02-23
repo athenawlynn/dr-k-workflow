@@ -455,7 +455,15 @@ const DailyTaskTracker = ({ onLogout }) => {
     if (!link.startsWith('http') && link.includes('@')) {
       link = `https://mail.google.com/mail/u/0/#search/rfc822msgid:${encodeURIComponent(link)}`;
     }
+    // If it's already a Gmail search URL, make sure the msgid portion is properly encoded
+    // (+ signs in message IDs must be %2B or Gmail can't find the email)
     if (link.startsWith('http')) {
+      const msgidMatch = link.match(/(#search\/rfc822msgid:)(.+)$/);
+      if (msgidMatch) {
+        const base = link.substring(0, link.indexOf(msgidMatch[1]) + msgidMatch[1].length);
+        const msgid = msgidMatch[2].replace(/\+/g, '%2B');
+        link = base + msgid;
+      }
       window.open(link, '_blank', 'noopener,noreferrer');
     }
   };
