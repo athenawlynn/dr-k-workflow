@@ -333,7 +333,13 @@ const DailyTaskTracker = ({ onLogout }) => {
         const uniqueTasks = removeDuplicateTasks(normalizedTasks);
         setTasks(uniqueTasks);
         try { localStorage.setItem('tasks-backup-latest', JSON.stringify(uniqueTasks)); } catch (e) {}
-      } else { setTasks([]); }
+      } else {
+        // ⚠️ Do NOT wipe tasks if response is empty/unexpected — fall back to localStorage instead
+        const backup = localStorage.getItem('tasks-backup-latest');
+        if (backup) {
+          try { const parsed = JSON.parse(backup); if (Array.isArray(parsed) && parsed.length > 0) { setTasks(parsed.map(normalizeTask).filter(t => t !== null)); setSaveError('Loaded from backup. Click Sync to reload from server.'); } } catch(e) {}
+        }
+      }
     } catch (error) {
       console.error('Load error:', error);
       setSaveError('Failed to load. Click Sync.');
@@ -345,7 +351,7 @@ const DailyTaskTracker = ({ onLogout }) => {
   };
 
   const saveTasksToStorage = async (tasksToSave) => {
-    if (!tasksToSave || tasksToSave.length === 0) return { success: false };
+    if (!tasksToSave || tasksToSave.length === 0) { console.warn('Refusing to save empty task list'); return { success: false }; }
     setIsSaving(true);
     setSaveError(null);
     const normalizedTasks = tasksToSave.map(normalizeTask).filter(t => t !== null);
