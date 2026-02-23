@@ -77,9 +77,8 @@ const DailyTaskTracker = ({ onLogout }) => {
 
   const driveUrlToImage = (url) => {
     if (!url) return '';
-    // Convert Google Drive share link to direct image URL
     const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-    if (match) return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w400`;
+    if (match) return `https://lh3.googleusercontent.com/d/${match[1]}`;
     return url;
   };
 
@@ -716,7 +715,14 @@ const DailyTaskTracker = ({ onLogout }) => {
               <button onClick={onLogout} className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200">🚪 Logout</button>
             </div>
           </div>
-          <div className="flex gap-2 mt-6 border-b-2 flex-wrap">
+          <div className="flex gap-4 mt-4 flex-wrap text-sm">
+            <span className={darkMode ? 'text-gray-300' : 'text-gray-600'}>📋 <strong>Active: {tasks.filter(t => !t.completed && !t.comeBackDate).length}</strong></span>
+            <span className="text-green-600">✓ <strong>Done: {tasks.filter(t => t.completed).length}</strong></span>
+            <span className="text-amber-500">⚡ <strong>Urgent: {tasks.filter(t => t.urgent && !t.completed).length}</strong></span>
+            <span className="text-blue-500">🔄 <strong>Come Back: {comeBackTasks.length}</strong></span>
+            <span className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Total: {tasks.length}</span>
+          </div>
+          <div className="flex gap-2 mt-4 border-b-2 flex-wrap">
             {[['tasks', '📋 Tasks'], ['comeback', `🔄 Come Back${comeBackTasks.length > 0 ? ` (${comeBackTasks.length})` : ''}`], ['newhires', `👤 New Hires${newHires.length > 0 ? ` (${newHires.length})` : ''}`], ['contacts', '📇 Contacts'], ['travel', '✈️ Travel'], ['instructions', '📖 Help']].map(([key, label]) => (
               <button key={key} onClick={() => setActiveSection(key)} className={`px-6 py-3 font-semibold relative ${activeSection === key ? 'text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}>
                 {label}{activeSection === key && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600"></div>}
