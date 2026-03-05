@@ -7,7 +7,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <title>Dr. K Workflow v2.5</title>
+  <title>Dr. K Workflow v2.6</title>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -70,7 +70,7 @@ const DailyTaskTracker = ({ onLogout }) => {
 
   const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbyjhSICWZp1f9F5jbjJyT5GRjfgxHcMXyqYfv-J0Qd5hazfs21wnmlA9R6ahmco5xJudA/exec';
 
-  // ── MY NOTES (Athena-only, localStorage only) ─────────────────────────────
+  // ── MY NOTES ──────────────────────────────────────────────────────────────
   const NOTES_CATEGORIES = ['General','Tasks in Progress','Follow-Ups','Research','Ideas','Passwords & Logins','Dr. K Info','Palm Beach Social','Other'];
   const EMPTY_NOTE = { category: 'General', title: '', body: '' };
   const [myNotes, setMyNotes] = useState(() => {
@@ -128,7 +128,6 @@ const DailyTaskTracker = ({ onLogout }) => {
       if (data.success) setNewHireStatus('✓ Saved to Sheets');
       else setNewHireStatus('⚠️ Saved locally only');
     } catch(e) {
-      console.error('New hires save error:', e);
       setNewHireStatus('⚠️ Saved locally only');
     }
     setNewHireSaving(false);
@@ -136,12 +135,10 @@ const DailyTaskTracker = ({ onLogout }) => {
   };
 
   const loadNewHiresFromSheets = async () => {
-    // Load localStorage immediately so something shows
     const backup = localStorage.getItem('newhires-backup');
     if (backup) {
       try { const p = JSON.parse(backup); if (Array.isArray(p) && p.length > 0) setNewHires(p); } catch(e) {}
     }
-    // Then sync from Sheets
     try {
       const res = await fetch(SHEETS_API_URL + '?action=getNewHires', { redirect: 'follow' });
       const text = await res.text();
@@ -150,7 +147,7 @@ const DailyTaskTracker = ({ onLogout }) => {
         setNewHires(data.newhires);
         localStorage.setItem('newhires-backup', JSON.stringify(data.newhires));
       }
-    } catch(e) { console.error('New hires Sheets load error:', e); }
+    } catch(e) { console.error('New hires load error:', e); }
   };
 
   useEffect(() => { loadNewHiresFromSheets(); }, []);
@@ -176,7 +173,7 @@ const DailyTaskTracker = ({ onLogout }) => {
   };
   const cancelEditNewHire = () => { setEditingNewHireId(null); setNewHireForm(EMPTY_HIRE); };
 
-  // ── TRAVEL ─────────────────────────────────────────────────────────────────
+  // ── TRAVEL ──────────────────────────────────────────────────────────────────
   const [travelEntries, setTravelEntries] = useState([
     { id: 1, type:"Flight", description:"ATL to Memphis - Flight DL1700 Departs at 4:15 PM", startDate:"2026-02-26", endDate:"2026-02-26", location:"Memphis", confirmation:"#GX5JAV", url:"", tags:["Flight"] },
     { id: 2, type:"Hotel", description:"Hilton Memphis Hotel", startDate:"2026-02-26", endDate:"2026-02-28", location:"Memphis", confirmation:"3395896664", url:"", tags:["Hotel"] },
@@ -473,16 +470,61 @@ const DailyTaskTracker = ({ onLogout }) => {
 
   const toggleDarkMode = () => setDarkMode(d => { localStorage.setItem('darkMode',(!d).toString()); return !d; });
 
+  // ── FIX 1: IMPROVED RECAP GENERATOR ────────────────────────────────────────
+  // Excludes Come Back tasks, uses clean formatting, accurate counts
   const generateRecap = () => {
-    if (!tasks.length) { alert('No tasks to recap.'); return; }
-    const today=new Date(); const day=today.getDate();
-    const suf=day%10===1&&day!==11?'st':day%10===2&&day!==12?'nd':day%10===3&&day!==13?'rd':'th';
-    const date=today.toLocaleDateString('en-US',{weekday:'long',month:'long'})+' '+day+suf;
-    const sections=[["THIS WEEK'S PROJECTS",tasks.filter(t=>t.tag==="This Week's Projects"&&!t.completed)],["REAL ESTATE",tasks.filter(t=>t.tag==='Real Estate'&&!t.completed)],["DR. RESPONSE",tasks.filter(t=>t.tag==='Dr. Response'&&!t.completed)],["OFFICE",tasks.filter(t=>t.tag==='Office'&&!t.completed)],["FINANCE",tasks.filter(t=>t.tag==='Finance'&&!t.completed)],["TRAVEL",tasks.filter(t=>t.tag==='Travel'&&!t.completed)],["PERSONAL",tasks.filter(t=>t.tag==='Personal'&&!t.completed)],["OTHER",tasks.filter(t=>!["This Week's Projects",'Real Estate','Dr. Response','Office','Finance','Travel','Personal'].includes(t.tag)&&!t.completed)]];
-    let recap=`Hi Dr. Koch, here is your Daily Recap for ${date} in order of action item:\n\n`;
-    sections.forEach(([name,items])=>{ if(items.length>0){recap+=`${name}\n`;items.forEach(t=>{recap+=`• [${t.category}] ${safeString(t.description)}\n`;});recap+='\n';}});
-    recap+=`---\nTotal: ${tasks.length} | Done: ${tasks.filter(t=>t.completed).length} | Remaining: ${tasks.filter(t=>!t.completed).length}`;
-    setTimeout(()=>setRecapText(recap),0);
+    const activeTasks = getActiveTasks(); // excludes come-back tasks
+    const pendingTasks = activeTasks.filter(t => !t.completed);
+    if (!pendingTasks.length) { alert('No pending tasks to recap.'); return; }
+
+    const today = new Date();
+    const day = today.getDate();
+    const suf = day%10===1&&day!==11?'st':day%10===2&&day!==12?'nd':day%10===3&&day!==13?'rd':'th';
+    const dateStr = today.toLocaleDateString('en-US',{weekday:'long',month:'long'}) + ' ' + day + suf;
+
+    const tagOrder = ["This Week's Projects","Real Estate","Dr. Response","Office","Finance","Travel","Personal"];
+    const sectionMap = {
+      "This Week's Projects": "THIS WEEK'S PROJECTS",
+      "Real Estate": "REAL ESTATE",
+      "Dr. Response": "DR. RESPONSE",
+      "Office": "OFFICE",
+      "Finance": "FINANCE",
+      "Travel": "TRAVEL",
+      "Personal": "PERSONAL",
+      "Other": "OTHER"
+    };
+
+    let recap = `Hi Dr. Koch, here is your Daily Recap for ${dateStr} in order of action item:\n\n`;
+
+    tagOrder.forEach(tag => {
+      const items = pendingTasks.filter(t => t.tag === tag);
+      if (items.length > 0) {
+        recap += `${sectionMap[tag]}\n`;
+        items.forEach(t => {
+          const urgentFlag = t.urgent ? ' ⚡ URGENT' : '';
+          recap += `• [${t.category}] ${safeString(t.description)}${urgentFlag}\n`;
+          if (safeString(t.notesDrK).trim()) recap += `  → ${safeString(t.notesDrK).trim()}\n`;
+        });
+        recap += '\n';
+      }
+    });
+
+    // Other (anything not in the main tags)
+    const otherItems = pendingTasks.filter(t => !tagOrder.includes(t.tag));
+    if (otherItems.length > 0) {
+      recap += `OTHER\n`;
+      otherItems.forEach(t => {
+        const urgentFlag = t.urgent ? ' ⚡ URGENT' : '';
+        recap += `• [${t.category}] ${safeString(t.description)}${urgentFlag}\n`;
+        if (safeString(t.notesDrK).trim()) recap += `  → ${safeString(t.notesDrK).trim()}\n`;
+      });
+      recap += '\n';
+    }
+
+    recap += `---\nTotal Active: ${activeTasks.length} | Completed: ${tasks.filter(t=>t.completed).length} | Pending: ${pendingTasks.length} | Urgent: ${pendingTasks.filter(t=>t.urgent).length}`;
+    if (getComeBackTasks().length > 0) recap += ` | Come Back Later: ${getComeBackTasks().length}`;
+
+    setTimeout(() => setRecapText(recap), 0);
   };
 
   const groupTasksBySection = (list) => {
@@ -502,10 +544,20 @@ const DailyTaskTracker = ({ onLogout }) => {
     return 'bg-gradient-to-r from-gray-600 to-gray-500';
   };
 
+  // FIX 2: renderDescription supports line breaks
   const renderDescription = (text) => {
-    const s=safeString(text); if(!s) return '';
-    const re=/(https?:\/\/[^\s]+)/g;
-    return s.split(re).map((p,i)=>p.match(re)?<a key={i} href={p} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline break-all">{p.length>40?p.substring(0,40)+'...':p}</a>:p);
+    const s = safeString(text); if (!s) return '';
+    const re = /(https?:\/\/[^\s]+)/g;
+    return s.split('\n').map((line, li) => (
+      <span key={li}>
+        {li > 0 && <br/>}
+        {line.split(re).map((p, i) =>
+          p.match(re)
+            ? <a key={i} href={p} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline break-all">{p.length>40?p.substring(0,40)+'...':p}</a>
+            : p
+        )}
+      </span>
+    ));
   };
 
   const getBadgeClass = (type,val) => {
@@ -521,6 +573,14 @@ const DailyTaskTracker = ({ onLogout }) => {
   const groupedTasks=groupTasksBySection(filteredTasks);
   const comeBackTasks=getComeBackTasks();
 
+  // FIX 3: ACCURATE COUNTERS
+  // Active = not completed AND not in come-back tab
+  const activeCount = activeTasks.filter(t => !t.completed).length;
+  const doneCount = tasks.filter(t => t.completed).length;
+  const urgentCount = activeTasks.filter(t => t.urgent && !t.completed).length;
+  const comeBackCount = comeBackTasks.length;
+
+  // FIX 4: Task edit form — textarea for description (supports Enter/line breaks)
   const taskEditForm = (onSave, onCancel) => (
     <div className="space-y-3">
       <div className="flex justify-between"><span className="font-bold text-blue-700">✏️ Editing</span><button onClick={onCancel}>✕</button></div>
@@ -528,7 +588,13 @@ const DailyTaskTracker = ({ onLogout }) => {
         <select value={formData.category} onChange={(e)=>setFormData({...formData,category:e.target.value})} className="px-2 py-1.5 border rounded text-sm"><option>Review</option><option>Sign</option><option>Appointment</option><option>Approve</option><option>Respond</option><option>No Action Needed</option><option>PAY</option><option>Hold</option><option>Errands</option><option>Dr. Response</option></select>
         <select value={formData.tag} onChange={(e)=>setFormData({...formData,tag:e.target.value})} className="px-2 py-1.5 border rounded text-sm"><option>This Week's Projects</option><option>Real Estate</option><option>Dr. Response</option><option>Office</option><option>Finance</option><option>Travel</option><option>Personal</option><option>Other</option></select>
       </div>
-      <textarea value={formData.description} onChange={(e)=>setFormData({...formData,description:e.target.value})} className="w-full px-3 py-2 border rounded text-sm min-h-24"/>
+      <textarea
+        value={formData.description}
+        onChange={(e)=>setFormData({...formData,description:e.target.value})}
+        onKeyDown={(e)=>{ if(e.key==='Enter'&&!e.shiftKey){ /* allow natural line break */ } }}
+        placeholder="Task description... (Enter for new line)"
+        className="w-full px-3 py-2 border rounded text-sm min-h-24 resize-y"
+      />
       <input type="text" value={formData.emailLink} onChange={(e)=>setFormData({...formData,emailLink:e.target.value})} placeholder="Email link or Message-ID" className="w-full px-3 py-2 border rounded text-sm"/>
       <div className="flex items-center gap-3 flex-wrap">
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={formData.urgent} onChange={(e)=>setFormData({...formData,urgent:e.target.checked})}/> Urgent</label>
@@ -555,7 +621,8 @@ const DailyTaskTracker = ({ onLogout }) => {
           <button onClick={()=>deleteTask(task.id)} className="w-7 h-7 bg-gray-100 hover:bg-red-100 rounded flex items-center justify-center" title="Delete">×</button>
         </div>
       </div>
-      <p className={`text-sm mb-2 ${task.completed?'line-through':''}`}>{renderDescription(task.description)}</p>
+      {/* FIX 5: description renders line breaks, not jumbled */}
+      <p className={`text-sm mb-2 whitespace-pre-line leading-relaxed ${task.completed?'line-through text-gray-400':''}`}>{renderDescription(task.description)}</p>
       <div className="mt-2 flex items-center gap-2">
         <span className="text-sm">📧</span>
         <input type="text" value={getEmailValue(task)} onChange={(e)=>updateLocalEmail(task.id,e.target.value)} onBlur={()=>saveEmailOnBlur(task.id)} placeholder="Paste email link or Message-ID..." className="flex-1 px-2 py-1 border border-gray-200 rounded text-xs bg-white focus:border-blue-400 outline-none"/>
@@ -564,6 +631,14 @@ const DailyTaskTracker = ({ onLogout }) => {
     </>
   );
 
+  // FIX 6: Notes fields — auto-grow, show full content
+  const noteTextareaStyle = "w-full px-3 py-2 border-2 rounded-lg text-sm bg-white resize-none overflow-hidden";
+
+  const autoResize = (e) => {
+    e.target.style.height = 'auto';
+    e.target.style.height = e.target.scrollHeight + 'px';
+  };
+
   return (
     <div className={`min-h-screen p-4 ${darkMode?'bg-gradient-to-br from-gray-900 to-gray-800':'bg-gradient-to-br from-indigo-600 to-purple-700'}`}>
       <div className="max-w-6xl mx-auto">
@@ -571,7 +646,7 @@ const DailyTaskTracker = ({ onLogout }) => {
         <div className={`rounded-2xl shadow-2xl p-6 mb-6 ${darkMode?'bg-gray-800 text-white':'bg-white'}`}>
           <div className="flex justify-between items-center flex-wrap gap-4">
             <div>
-              <h1 className={`text-3xl font-serif font-bold mb-2 ${darkMode?'text-white':'text-indigo-900'}`}>Dr. K Workflow <span className="text-xs font-normal text-gray-400 align-middle">v2.5</span></h1>
+              <h1 className={`text-3xl font-serif font-bold mb-2 ${darkMode?'text-white':'text-indigo-900'}`}>Dr. K Workflow <span className="text-xs font-normal text-gray-400 align-middle">v2.6</span></h1>
               <p className={darkMode?'text-gray-300':'text-gray-600'}>{new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}</p>
               <div className={`mt-3 p-3 rounded-lg border-l-4 ${darkMode?'bg-gray-700 border-purple-400':'bg-purple-50 border-purple-500'}`}>
                 <p className={`text-sm italic ${darkMode?'text-gray-300':'text-gray-700'}`}>"{dailyQuote.quote}"</p>
@@ -587,16 +662,17 @@ const DailyTaskTracker = ({ onLogout }) => {
               <button onClick={onLogout} className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200">🚪 Logout</button>
             </div>
           </div>
+          {/* FIX 3: Accurate counters */}
           <div className="flex gap-4 mt-4 flex-wrap text-sm">
-            <span className={darkMode?'text-gray-300':'text-gray-600'}>📋 <strong>Active: {tasks.filter(t=>!t.completed&&!t.comeBackDate).length}</strong></span>
-            <span className="text-green-600">✓ <strong>Done: {tasks.filter(t=>t.completed).length}</strong></span>
-            <span className="text-amber-500">⚡ <strong>Urgent: {tasks.filter(t=>t.urgent&&!t.completed).length}</strong></span>
-            <span className="text-blue-500">🔄 <strong>Come Back: {comeBackTasks.length}</strong></span>
+            <span className={darkMode?'text-gray-300':'text-gray-600'}>📋 <strong>Active: {activeCount}</strong></span>
+            <span className="text-green-600">✓ <strong>Done: {doneCount}</strong></span>
+            <span className="text-amber-500">⚡ <strong>Urgent: {urgentCount}</strong></span>
+            <span className="text-blue-500">🔄 <strong>Come Back: {comeBackCount}</strong></span>
             <span className={darkMode?'text-gray-400':'text-gray-500'}>Total: {tasks.length}</span>
           </div>
           {/* Tabs */}
           <div className="flex gap-0 mt-4 border-b-2 overflow-x-auto">
-            {[['tasks','📋 Tasks'],['comeback',`🔄 Come Back${comeBackTasks.length>0?` (${comeBackTasks.length})`:''}`],['newhires',`👤 New Hires${newHires.length>0?` (${newHires.length})`:''}`],['contacts','📇 Contacts'],['travel','✈️ Travel'],['mynotes',`📓 My Notes${myNotes.length>0?` (${myNotes.length})`:''}`],['instructions','📖 Help']].map(([key,label])=>(
+            {[['tasks','📋 Tasks'],['comeback',`🔄 Come Back${comeBackCount>0?` (${comeBackCount})`:''}`],['newhires',`👤 New Hires${newHires.length>0?` (${newHires.length})`:''}`],['contacts','📇 Contacts'],['travel','✈️ Travel'],['mynotes',`📓 My Notes${myNotes.length>0?` (${myNotes.length})`:''}`],['instructions','📖 Help']].map(([key,label])=>(
               <button key={key} onClick={()=>setActiveSection(key)} className={`px-4 py-3 font-semibold relative whitespace-nowrap text-sm ${activeSection===key?'text-indigo-600':'text-gray-500 hover:text-gray-700'}`}>
                 {label}{activeSection===key&&<div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600"></div>}
               </button>
@@ -629,7 +705,7 @@ const DailyTaskTracker = ({ onLogout }) => {
                         <div className="flex justify-between"><span className="font-bold text-purple-700 text-sm">✏️ Editing</span><button onClick={cancelEditNote}>✕</button></div>
                         <select value={noteForm.category} onChange={(e)=>setNoteForm({...noteForm,category:e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm">{NOTES_CATEGORIES.map(c=><option key={c}>{c}</option>)}</select>
                         <input type="text" value={noteForm.title} onChange={(e)=>setNoteForm({...noteForm,title:e.target.value})} placeholder="Title (optional)" className="w-full px-3 py-2 border rounded-lg text-sm"/>
-                        <textarea value={noteForm.body} onChange={(e)=>setNoteForm({...noteForm,body:e.target.value})} placeholder="Note content..." className="w-full px-3 py-2 border rounded-lg text-sm min-h-32"/>
+                        <textarea value={noteForm.body} onChange={(e)=>setNoteForm({...noteForm,body:e.target.value})} placeholder="Note content..." className="w-full px-3 py-2 border rounded-lg text-sm min-h-32 resize-y"/>
                         <div className="flex gap-2"><button onClick={saveEditNote} className="flex-1 py-2 bg-purple-500 text-white rounded-lg text-sm">✓ Save</button><button onClick={cancelEditNote} className="flex-1 py-2 bg-gray-300 rounded-lg text-sm">Cancel</button></div>
                       </div>
                     ) : (
@@ -652,7 +728,7 @@ const DailyTaskTracker = ({ onLogout }) => {
               <div className="bg-purple-50 rounded-xl p-5 space-y-3">
                 <select value={noteForm.category} onChange={(e)=>setNoteForm({...noteForm,category:e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm">{NOTES_CATEGORIES.map(c=><option key={c}>{c}</option>)}</select>
                 <input type="text" value={noteForm.title} onChange={(e)=>setNoteForm({...noteForm,title:e.target.value})} placeholder="Title (optional)" className="w-full px-3 py-2 border rounded-lg text-sm"/>
-                <textarea value={noteForm.body} onChange={(e)=>setNoteForm({...noteForm,body:e.target.value})} placeholder="Reminders, research, follow-ups, ideas, passwords, anything..." className="w-full px-3 py-2 border rounded-lg text-sm min-h-32"/>
+                <textarea value={noteForm.body} onChange={(e)=>setNoteForm({...noteForm,body:e.target.value})} placeholder="Reminders, research, follow-ups, ideas, passwords, anything..." className="w-full px-3 py-2 border rounded-lg text-sm min-h-32 resize-y"/>
                 <button onClick={addNote} className="w-full py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium">➕ Add Note</button>
               </div>
               <p className="mt-3 text-xs text-gray-400 italic">Saved to this browser only — not visible to Dr. K, not synced to Google Sheets.</p>
@@ -660,18 +736,36 @@ const DailyTaskTracker = ({ onLogout }) => {
           </div>
         )}
 
-        {/* ── INSTRUCTIONS TAB ── */}
+        {/* ── INSTRUCTIONS / HELP TAB ── */}
         {activeSection==='instructions' && (
           <div className={`rounded-2xl shadow-2xl p-8 ${darkMode?'bg-gray-800 text-white':'bg-white'}`}>
-            <h2 className="text-2xl font-bold mb-6">How to Use</h2>
+            <h2 className="text-2xl font-bold mb-6">📖 How to Use</h2>
             <div className="space-y-4">
-              <div className="p-4 bg-blue-50 border-l-4 border-blue-500 rounded-r-lg"><h3 className="font-bold text-blue-900">📧 Email Links & Message IDs</h3><p className="text-blue-800 mt-1">Paste a full Gmail URL or a raw Message-ID into the email field. Click Open ↗ to open in Gmail.</p></div>
-              <div className="p-4 bg-green-50 border-l-4 border-green-500 rounded-r-lg"><h3 className="font-bold text-green-900">💾 Auto-Save</h3><p className="text-green-800 mt-1">Tasks auto-save every 5 minutes. Local backup is always kept.</p></div>
-              <div className="p-4 bg-orange-50 border-l-4 border-orange-500 rounded-r-lg"><h3 className="font-bold text-orange-900">🔄 Come Back Later</h3><p className="text-orange-800 mt-1">Set a "Come back" date to move a task to the Come Back tab. It auto-returns on that date.</p></div>
-              <div className="p-4 bg-purple-50 border-l-4 border-purple-500 rounded-r-lg"><h3 className="font-bold text-purple-900">📓 My Notes</h3><p className="text-purple-800 mt-1">Athena's private workspace. Not visible to Dr. K, not synced. Stays in your browser.</p></div>
-              <div className="p-4 bg-gray-50 rounded-lg"><h3 className="font-bold mb-2">Button Guide:</h3><div className="grid grid-cols-2 gap-2 text-sm"><span>✏️ Edit task</span><span>📅 Toggle Carried Over</span><span>⚡ Toggle urgent</span><span>○/✓ Complete</span><span>× Delete</span><span>↩️ Bring back now</span></div></div>
-              <button onClick={generateRecap} className="w-full py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium">✨ Generate Daily Recap</button>
-              {recapText && <div className="space-y-3"><textarea value={recapText} onChange={(e)=>setRecapText(e.target.value)} className="w-full min-h-48 p-3 border rounded-lg text-sm font-mono"/><button onClick={()=>{navigator.clipboard.writeText(recapText);alert('Copied!');}} className="w-full py-2 bg-amber-500 text-white rounded-lg">📋 Copy</button></div>}
+              <div className="p-4 bg-blue-50 border-l-4 border-blue-500 rounded-r-lg"><h3 className="font-bold text-blue-900">📧 Email Links & Message IDs</h3><p className="text-blue-800 mt-1 text-sm">Paste a full Gmail URL or a raw Message-ID into the email field. Click Open ↗ to open in Gmail.</p></div>
+              <div className="p-4 bg-green-50 border-l-4 border-green-500 rounded-r-lg"><h3 className="font-bold text-green-900">💾 Auto-Save</h3><p className="text-green-800 mt-1 text-sm">Tasks auto-save every 5 minutes. Local backup is always kept.</p></div>
+              <div className="p-4 bg-orange-50 border-l-4 border-orange-500 rounded-r-lg"><h3 className="font-bold text-orange-900">🔄 Come Back Later</h3><p className="text-orange-800 mt-1 text-sm">Set a "Come back" date to move a task to the Come Back tab. It auto-returns on that date. Come Back tasks are excluded from the Daily Recap.</p></div>
+              <div className="p-4 bg-purple-50 border-l-4 border-purple-500 rounded-r-lg"><h3 className="font-bold text-purple-900">📓 My Notes</h3><p className="text-purple-800 mt-1 text-sm">Athena's private workspace. Not visible to Dr. K, not synced. Stays in your browser.</p></div>
+              <div className="p-4 bg-amber-50 border-l-4 border-amber-500 rounded-r-lg"><h3 className="font-bold text-amber-900">📝 Task Descriptions</h3><p className="text-amber-800 mt-1 text-sm">Press Enter to add line breaks in task descriptions. Formatting is preserved when saved.</p></div>
+              <div className="p-4 bg-gray-50 rounded-lg"><h3 className="font-bold mb-2 text-sm">Button Guide:</h3><div className="grid grid-cols-2 gap-2 text-sm"><span>✏️ Edit task</span><span>📅 Toggle Carried Over</span><span>⚡ Toggle urgent</span><span>○/✓ Complete</span><span>× Delete</span><span>↩️ Bring back now</span></div></div>
+              <div className="border-t-2 pt-4">
+                <h3 className="font-bold text-lg mb-3">✨ Generate Daily Recap</h3>
+                <p className="text-sm text-gray-600 mb-3">Generates a recap of all pending active tasks (excludes completed and Come Back tasks). Urgent tasks are flagged. Dr. K's notes are included inline.</p>
+                <button onClick={generateRecap} className="w-full py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium">✨ Generate Daily Recap</button>
+              </div>
+              {recapText && (
+                <div className="space-y-3">
+                  <textarea
+                    value={recapText}
+                    onChange={(e)=>setRecapText(e.target.value)}
+                    className="w-full min-h-64 p-4 border-2 border-indigo-200 rounded-lg text-sm font-sans leading-relaxed"
+                    style={{fontFamily:'system-ui,-apple-system,sans-serif',fontSize:'13px',lineHeight:'1.6'}}
+                  />
+                  <div className="flex gap-3">
+                    <button onClick={()=>{navigator.clipboard.writeText(recapText);alert('Copied to clipboard!');}} className="flex-1 py-2 bg-amber-500 text-white rounded-lg font-medium">📋 Copy to Clipboard</button>
+                    <button onClick={()=>setRecapText('')} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg">Clear</button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -687,7 +781,7 @@ const DailyTaskTracker = ({ onLogout }) => {
             </div>
             <div className="space-y-6">
               {isLoading ? <div className="text-center py-12"><div className="text-5xl mb-4">⏳</div><p>Loading...</p></div>
-               : filteredTasks.length===0 ? <div className="text-center py-12"><div className="text-5xl mb-4">📋</div><p>No tasks</p></div>
+               : filteredTasks.length===0 ? <div className="text-center py-12"><div className="text-5xl mb-4">📋</div><p className={darkMode?'text-gray-400':'text-gray-500'}>No tasks</p></div>
                : groupedTasks.map(([sectionName,sectionTasks])=>(
                 <div key={sectionName}>
                   <div className={`${getSectionColor(sectionName)} text-white px-4 py-3 rounded-t-lg font-bold text-sm uppercase`}>{sectionName}</div>
@@ -703,18 +797,35 @@ const DailyTaskTracker = ({ onLogout }) => {
                               {task.comeBackDate && <button onClick={()=>clearComeBackDate(task.id)} className="px-2 py-1 bg-gray-200 hover:bg-gray-300 rounded text-xs">Clear</button>}
                             </div>
                             <div className="mt-4 pt-4 border-t-2">
-                              <button onClick={()=>toggleNotes(task.id)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${hasNotes(task)?'bg-amber-100 text-amber-800':'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                              <button onClick={()=>toggleNotes(task.id)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${hasNotes(task)?'bg-amber-100 text-amber-800 border border-amber-300':'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
                                 📝 Notes {hasNotes(task)?'(has notes)':''} {expandedNotes[task.id]?'▲':'▼'}
                               </button>
                               {expandedNotes[task.id] && (
                                 <div className="mt-3 space-y-3">
                                   <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3">
                                     <label className="block text-xs font-bold text-blue-800 uppercase mb-2">👨‍⚕️ Dr. K's Notes</label>
-                                    <textarea value={getNoteValue(task,'notesDrK')} onChange={(e)=>updateLocalNote(task.id,'notesDrK',e.target.value)} onBlur={()=>saveNoteOnBlur(task.id,'notesDrK')} placeholder="Dr. Koch's comments..." className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg text-sm min-h-16 bg-white"/>
+                                    {/* FIX 6: auto-grow textarea, shows full content */}
+                                    <textarea
+                                      value={getNoteValue(task,'notesDrK')}
+                                      onChange={(e)=>{ updateLocalNote(task.id,'notesDrK',e.target.value); autoResize(e); }}
+                                      onFocus={autoResize}
+                                      onBlur={(e)=>{ saveNoteOnBlur(task.id,'notesDrK'); }}
+                                      placeholder="Dr. Koch's comments..."
+                                      className={`${noteTextareaStyle} border-blue-300 min-h-20`}
+                                      rows={Math.max(3, (getNoteValue(task,'notesDrK').match(/\n/g)||[]).length + 2)}
+                                    />
                                   </div>
                                   <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-3">
                                     <label className="block text-xs font-bold text-purple-800 uppercase mb-2">👩‍💼 Athena's Notes</label>
-                                    <textarea value={getNoteValue(task,'notesAthena')} onChange={(e)=>updateLocalNote(task.id,'notesAthena',e.target.value)} onBlur={()=>saveNoteOnBlur(task.id,'notesAthena')} placeholder="Athena's updates..." className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg text-sm min-h-16 bg-white"/>
+                                    <textarea
+                                      value={getNoteValue(task,'notesAthena')}
+                                      onChange={(e)=>{ updateLocalNote(task.id,'notesAthena',e.target.value); autoResize(e); }}
+                                      onFocus={autoResize}
+                                      onBlur={(e)=>{ saveNoteOnBlur(task.id,'notesAthena'); }}
+                                      placeholder="Athena's updates..."
+                                      className={`${noteTextareaStyle} border-purple-300 min-h-20`}
+                                      rows={Math.max(3, (getNoteValue(task,'notesAthena').match(/\n/g)||[]).length + 2)}
+                                    />
                                   </div>
                                 </div>
                               )}
@@ -727,10 +838,11 @@ const DailyTaskTracker = ({ onLogout }) => {
                 </div>
               ))}
             </div>
+            {/* Stats bar */}
             <div className="bg-indigo-50 border-2 border-indigo-200 rounded-xl p-5 my-6">
               <div className="grid grid-cols-5 gap-3 text-center">
-                {[['indigo',activeTasks.length,'Active'],['green',tasks.filter(t=>t.completed).length,'Done'],['yellow',tasks.filter(t=>t.urgent&&!t.completed).length,'Urgent'],['amber',comeBackTasks.length,'Come Back'],['gray',tasks.length,'Total']].map(([c,n,l])=>(
-                  <div key={l} className="bg-white rounded-lg p-3"><div className={`text-2xl font-bold text-${c}-600`}>{n}</div><div className="text-xs">{l}</div></div>
+                {[['indigo',activeCount,'Active'],['green',doneCount,'Done'],['yellow',urgentCount,'Urgent'],['amber',comeBackCount,'Come Back'],['gray',tasks.length,'Total']].map(([c,n,l])=>(
+                  <div key={l} className="bg-white rounded-lg p-3"><div className={`text-2xl font-bold text-${c}-600`}>{n}</div><div className="text-xs text-gray-600">{l}</div></div>
                 ))}
               </div>
             </div>
@@ -741,7 +853,13 @@ const DailyTaskTracker = ({ onLogout }) => {
                   <select value={formData.category} onChange={(e)=>setFormData({...formData,category:e.target.value})} className="px-3 py-2 border rounded-lg text-sm"><option>Review</option><option>Sign</option><option>Appointment</option><option>Approve</option><option>Respond</option><option>No Action Needed</option><option>PAY</option><option>Hold</option><option>Errands</option><option>Dr. Response</option></select>
                   <select value={formData.tag} onChange={(e)=>setFormData({...formData,tag:e.target.value})} className="px-3 py-2 border rounded-lg text-sm"><option>This Week's Projects</option><option>Real Estate</option><option>Dr. Response</option><option>Office</option><option>Finance</option><option>Travel</option><option>Personal</option><option>Other</option></select>
                 </div>
-                <textarea value={formData.description} onChange={(e)=>setFormData({...formData,description:e.target.value})} placeholder="Task description..." className="w-full px-3 py-2 border rounded-lg text-sm min-h-20"/>
+                {/* FIX 4/5: textarea for add form — supports line breaks */}
+                <textarea
+                  value={formData.description}
+                  onChange={(e)=>setFormData({...formData,description:e.target.value})}
+                  placeholder="Task description... (press Enter to add a new line)"
+                  className="w-full px-3 py-2 border rounded-lg text-sm min-h-20 resize-y"
+                />
                 <input type="text" value={formData.emailLink} onChange={(e)=>setFormData({...formData,emailLink:e.target.value})} placeholder="Email link or Message-ID" className="w-full px-3 py-2 border rounded-lg text-sm"/>
                 <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={formData.urgent} onChange={(e)=>setFormData({...formData,urgent:e.target.checked})}/> Mark Urgent</label>
                 <button onClick={addTask} className="w-full py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 font-medium">➕ Add Task</button>
@@ -754,7 +872,7 @@ const DailyTaskTracker = ({ onLogout }) => {
         {activeSection==='comeback' && (
           <div className={`rounded-2xl shadow-2xl p-6 ${darkMode?'bg-gray-800':'bg-white'}`}>
             <h2 className={`text-2xl font-serif font-bold mb-6 pb-4 border-b-2 ${darkMode?'text-white border-gray-600':'text-indigo-900 border-gray-200'}`}>🔄 Come Back Later</h2>
-            <div className="mb-4 p-4 bg-amber-50 border-l-4 border-amber-500 rounded-r-lg"><p className="text-amber-800 text-sm">Tasks here auto-return to the Tasks tab on their scheduled date.</p></div>
+            <div className="mb-4 p-4 bg-amber-50 border-l-4 border-amber-500 rounded-r-lg"><p className="text-amber-800 text-sm">Tasks here auto-return to the Tasks tab on their scheduled date. They are excluded from the Daily Recap while parked here.</p></div>
             <div className="space-y-4">
               {comeBackTasks.length===0 ? <div className="text-center py-12"><div className="text-5xl mb-4">📅</div><p className={darkMode?'text-gray-400':'text-gray-500'}>No tasks scheduled</p></div>
                : comeBackTasks.map(task=>{
@@ -770,8 +888,19 @@ const DailyTaskTracker = ({ onLogout }) => {
                           <input type="date" value={task.comeBackDate||''} onChange={(e)=>setComeBackDate(task.id,e.target.value)} className="px-2 py-1 border rounded text-xs" min={new Date().toISOString().split('T')[0]}/>
                         </div>
                         <div className="mt-3">
-                          <button onClick={()=>toggleNotes(task.id)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${hasNotes(task)?'bg-amber-100 text-amber-800':'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>📝 Notes {hasNotes(task)?'(has notes)':''} {expandedNotes[task.id]?'▲':'▼'}</button>
-                          {expandedNotes[task.id] && <div className="mt-3 space-y-3"><div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3"><label className="block text-xs font-bold text-blue-800 uppercase mb-2">👨‍⚕️ Dr. K's Notes</label><textarea value={getNoteValue(task,'notesDrK')} onChange={(e)=>updateLocalNote(task.id,'notesDrK',e.target.value)} onBlur={()=>saveNoteOnBlur(task.id,'notesDrK')} className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg text-sm min-h-16 bg-white"/></div><div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-3"><label className="block text-xs font-bold text-purple-800 uppercase mb-2">👩‍💼 Athena's Notes</label><textarea value={getNoteValue(task,'notesAthena')} onChange={(e)=>updateLocalNote(task.id,'notesAthena',e.target.value)} onBlur={()=>saveNoteOnBlur(task.id,'notesAthena')} className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg text-sm min-h-16 bg-white"/></div></div>}
+                          <button onClick={()=>toggleNotes(task.id)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${hasNotes(task)?'bg-amber-100 text-amber-800 border border-amber-300':'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>📝 Notes {hasNotes(task)?'(has notes)':''} {expandedNotes[task.id]?'▲':'▼'}</button>
+                          {expandedNotes[task.id] && (
+                            <div className="mt-3 space-y-3">
+                              <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3">
+                                <label className="block text-xs font-bold text-blue-800 uppercase mb-2">👨‍⚕️ Dr. K's Notes</label>
+                                <textarea value={getNoteValue(task,'notesDrK')} onChange={(e)=>{ updateLocalNote(task.id,'notesDrK',e.target.value); autoResize(e); }} onFocus={autoResize} onBlur={()=>saveNoteOnBlur(task.id,'notesDrK')} className={`${noteTextareaStyle} border-blue-300 min-h-20`} rows={Math.max(3,(getNoteValue(task,'notesDrK').match(/\n/g)||[]).length+2)}/>
+                              </div>
+                              <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-3">
+                                <label className="block text-xs font-bold text-purple-800 uppercase mb-2">👩‍💼 Athena's Notes</label>
+                                <textarea value={getNoteValue(task,'notesAthena')} onChange={(e)=>{ updateLocalNote(task.id,'notesAthena',e.target.value); autoResize(e); }} onFocus={autoResize} onBlur={()=>saveNoteOnBlur(task.id,'notesAthena')} className={`${noteTextareaStyle} border-purple-300 min-h-20`} rows={Math.max(3,(getNoteValue(task,'notesAthena').match(/\n/g)||[]).length+2)}/>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </>
                     )}
@@ -808,7 +937,7 @@ const DailyTaskTracker = ({ onLogout }) => {
                         </div>
                         <div className="flex flex-col gap-1"><label className="text-xs text-gray-500 ml-1">Start Date</label><input type="date" value={newHireForm.startDate} onChange={(e)=>setNewHireForm({...newHireForm,startDate:e.target.value})} className="px-3 py-2 border rounded-lg text-sm"/></div>
                         <div className="flex flex-col gap-1"><label className="text-xs text-gray-500 ml-1">📷 Google Drive Photo Link</label><input type="url" value={newHireForm.photoUrl} onChange={(e)=>setNewHireForm({...newHireForm,photoUrl:e.target.value})} placeholder="Paste Google Drive share link..." className="px-3 py-2 border rounded-lg text-sm"/>{newHireForm.photoUrl && <img src={driveUrlToImage(newHireForm.photoUrl)} alt="Preview" className="w-20 h-20 rounded-full object-cover border-2 border-indigo-300 mt-1" onError={(e)=>e.target.style.display='none'}/>}</div>
-                        <textarea value={newHireForm.notes} onChange={(e)=>setNewHireForm({...newHireForm,notes:e.target.value})} placeholder="Notes (onboarding tasks, equipment, etc.)" className="w-full px-3 py-2 border rounded-lg text-sm min-h-20"/>
+                        <textarea value={newHireForm.notes} onChange={(e)=>setNewHireForm({...newHireForm,notes:e.target.value})} placeholder="Notes (onboarding tasks, equipment, etc.)" className="w-full px-3 py-2 border rounded-lg text-sm min-h-20 resize-y"/>
                         <div className="flex gap-2"><button onClick={saveEditNewHire} className="flex-1 py-2 bg-blue-500 text-white rounded-lg">✓ Save</button><button onClick={cancelEditNewHire} className="flex-1 py-2 bg-gray-300 rounded-lg">Cancel</button></div>
                       </div>
                     ) : (
@@ -853,7 +982,7 @@ const DailyTaskTracker = ({ onLogout }) => {
                   <input type="url" value={newHireForm.photoUrl} onChange={(e)=>setNewHireForm({...newHireForm,photoUrl:e.target.value})} placeholder="https://drive.google.com/file/d/..." className="px-3 py-2 border rounded-lg text-sm"/>
                   {newHireForm.photoUrl && <img src={driveUrlToImage(newHireForm.photoUrl)} alt="Preview" className="w-24 h-24 rounded-full object-cover border-2 border-indigo-300 mt-2" onError={(e)=>e.target.style.display='none'}/>}
                 </div>
-                <textarea value={newHireForm.notes} onChange={(e)=>setNewHireForm({...newHireForm,notes:e.target.value})} placeholder="Notes (onboarding, equipment, parking, uniform size...)" className="w-full px-3 py-2 border rounded-lg text-sm min-h-24"/>
+                <textarea value={newHireForm.notes} onChange={(e)=>setNewHireForm({...newHireForm,notes:e.target.value})} placeholder="Notes (onboarding, equipment, parking, uniform size...)" className="w-full px-3 py-2 border rounded-lg text-sm min-h-24 resize-y"/>
                 <button onClick={addNewHire} className="w-full py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium">➕ Add New Hire</button>
               </div>
               <div className="mt-4 p-3 bg-amber-50 border-l-4 border-amber-400 rounded-r-lg text-xs text-amber-800"><strong>📷 Photo tip:</strong> Upload to Google Drive → right-click → Share → "Anyone with the link" → Copy link → paste above.</div>
@@ -881,7 +1010,7 @@ const DailyTaskTracker = ({ onLogout }) => {
                       <input type="text" value={contactForm.phone} onChange={(e)=>setContactForm({...contactForm,phone:e.target.value})} placeholder="Phone" className="w-full px-3 py-2 border rounded-lg text-sm"/>
                       <input type="email" value={contactForm.email} onChange={(e)=>setContactForm({...contactForm,email:e.target.value})} placeholder="Email" className="w-full px-3 py-2 border rounded-lg text-sm"/>
                       <input type="text" value={contactForm.website} onChange={(e)=>setContactForm({...contactForm,website:e.target.value})} placeholder="Website" className="w-full px-3 py-2 border rounded-lg text-sm"/>
-                      <textarea value={contactForm.notes} onChange={(e)=>setContactForm({...contactForm,notes:e.target.value})} placeholder="Notes" className="w-full px-3 py-2 border rounded-lg text-sm min-h-16"/>
+                      <textarea value={contactForm.notes} onChange={(e)=>setContactForm({...contactForm,notes:e.target.value})} placeholder="Notes" className="w-full px-3 py-2 border rounded-lg text-sm min-h-16 resize-y"/>
                       <div className="flex gap-2"><button onClick={saveEditContact} className="flex-1 py-2 bg-blue-500 text-white rounded-lg">✓ Save</button><button onClick={cancelEditContact} className="flex-1 py-2 bg-gray-300 rounded-lg">Cancel</button></div>
                     </div>
                   ) : (
@@ -894,7 +1023,7 @@ const DailyTaskTracker = ({ onLogout }) => {
                       {contact.phone && <div className="mt-2 flex items-center gap-2"><span className="text-gray-500">📞</span><a href={`tel:${contact.phone.replace(/[^0-9+]/g,'').split('/')[0]}`} className="text-blue-600 hover:underline text-sm">{contact.phone}</a></div>}
                       {contact.email && <div className="mt-1 flex items-center gap-2"><span className="text-gray-500">✉️</span><a href={`mailto:${contact.email}`} className="text-blue-600 hover:underline text-sm break-all">{contact.email}</a></div>}
                       {contact.website && <div className="mt-1 flex items-center gap-2"><span className="text-gray-500">🔗</span><a href={contact.website.startsWith('http')?contact.website:`https://${contact.website}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-sm break-all">{contact.website.replace(/https?:\/\//,'').substring(0,30)}{contact.website.length>40?'...':''}</a></div>}
-                      {contact.notes && <div className="mt-2 p-2 bg-gray-50 rounded text-xs text-gray-600">📝 {contact.notes}</div>}
+                      {contact.notes && <div className="mt-2 p-2 bg-gray-50 rounded text-xs text-gray-600 whitespace-pre-line">📝 {contact.notes}</div>}
                     </>
                   )}
                 </div>
@@ -913,7 +1042,7 @@ const DailyTaskTracker = ({ onLogout }) => {
                   <input type="email" value={contactForm.email} onChange={(e)=>setContactForm({...contactForm,email:e.target.value})} placeholder="Email" className="px-3 py-2 border rounded-lg text-sm"/>
                 </div>
                 <input type="text" value={contactForm.website} onChange={(e)=>setContactForm({...contactForm,website:e.target.value})} placeholder="Website" className="w-full px-3 py-2 border rounded-lg text-sm"/>
-                <textarea value={contactForm.notes} onChange={(e)=>setContactForm({...contactForm,notes:e.target.value})} placeholder="Notes" className="w-full px-3 py-2 border rounded-lg text-sm min-h-16"/>
+                <textarea value={contactForm.notes} onChange={(e)=>setContactForm({...contactForm,notes:e.target.value})} placeholder="Notes" className="w-full px-3 py-2 border rounded-lg text-sm min-h-16 resize-y"/>
                 {!editingContactId && <button onClick={addContact} className="w-full py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium">➕ Add Contact</button>}
               </div>
             </div>
