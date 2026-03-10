@@ -7,7 +7,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <title>Dr. K Workflow v2.6.1</title>
+  <title>Dr. K Workflow v2.7</title>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -297,7 +297,8 @@ const DailyTaskTracker = ({ onLogout }) => {
 
   useEffect(() => { loadTasksFromStorage(); }, []);
   useEffect(() => {
-    const t = setInterval(() => { if (tasksRef.current && tasksRef.current.length > 0) saveTasksToStorage(tasksRef.current); }, 5*60*1000);
+    // Auto-save every 10 min (was 5). The save guard already protects against empty writes.
+    const t = setInterval(() => { if (tasksRef.current && tasksRef.current.length > 0) saveTasksToStorage(tasksRef.current); }, 10*60*1000);
     return () => clearInterval(t);
   }, []);
 
@@ -332,21 +333,99 @@ const DailyTaskTracker = ({ onLogout }) => {
     });
   };
 
+  // ── MULTI-USER MERGE SYNC ────────────────────────────────────────────────────
+  // Strategy: each task carries an `updatedAt` timestamp. On every sync,
+  // we merge Sheets + local by task ID — the copy with the newer `updatedAt`
+  // wins per task. Tasks only in one source are always kept (never dropped).
+  // This means Athena and Dr. K can both be active simultaneously without
+  // either person losing work.
+
+  const stampTask = (task) => ({
+    ...task,
+    updatedAt: task.updatedAt || Date.now()
+  });
+
+  const mergeTasks = (sheetsArr, localArr) => {
+    const map = new Map();
+    // Index local tasks first
+    for (const t of localArr) {
+      if (t && t.id) map.set(String(t.id), t);
+    }
+    // Merge sheets tasks — newer updatedAt wins per id; unknown ids are added
+    for (const t of sheetsArr) {
+      if (!t || !t.id) continue;
+      const key = String(t.id);
+      const existing = map.get(key);
+      if (!existing) {
+        map.set(key, t); // task only in Sheets → keep it
+      } else {
+        const sheetsTs = t.updatedAt || 0;
+        const localTs  = existing.updatedAt || 0;
+        if (sheetsTs >= localTs) map.set(key, t); // Sheets version is newer
+        // else keep local (it's newer)
+      }
+    }
+    return removeDuplicateTasks([...map.values()].map(normalizeTask).filter(Boolean));
+  };
+
+  const writeLocalBackup = (list) => {
+    if (!list || list.length === 0) return;
+    try {
+      // 'safe' backup only grows — never written if result has fewer tasks
+      const prev = localStorage.getItem('tasks-backup-safe');
+      const prevCount = prev ? JSON.parse(prev).length : 0;
+      if (list.length >= prevCount) localStorage.setItem('tasks-backup-safe', JSON.stringify(list));
+      localStorage.setItem('tasks-backup-latest', JSON.stringify(list));
+    } catch(e) {}
+  };
+
+  const getBestLocalBackup = () => {
+    let latest = [], safe = [];
+    try { const b = localStorage.getItem('tasks-backup-latest'); if (b) latest = JSON.parse(b); } catch(e) {}
+    try { const b = localStorage.getItem('tasks-backup-safe');   if (b) safe   = JSON.parse(b); } catch(e) {}
+    return latest.length >= safe.length ? latest : safe;
+  };
+
   const loadTasksFromStorage = async () => {
     setIsLoading(true); setSaveError(null);
+
+    // Show local data immediately so the UI is never blank while fetching
+    const localTasks = getBestLocalBackup().map(normalizeTask).filter(Boolean);
+    if (localTasks.length > 0) setTasks(localTasks);
+
     try {
-      const res = await fetch(SHEETS_API_URL + '?action=getTasks');
+      const res  = await fetch(SHEETS_API_URL + '?action=getTasks');
       const data = JSON.parse(await res.text());
-      if (data.success && data.tasks && Array.isArray(data.tasks) && data.tasks.length > 0) {
-        const u = removeDuplicateTasks(data.tasks.map(normalizeTask).filter(Boolean));
-        setTasks(u); localStorage.setItem('tasks-backup-latest', JSON.stringify(u));
+
+      if (data.success && Array.isArray(data.tasks) && data.tasks.length > 0) {
+        const sheetsTasks = data.tasks.map(normalizeTask).filter(Boolean);
+
+        if (localTasks.length === 0) {
+          // Cold start — just use Sheets
+          const clean = removeDuplicateTasks(sheetsTasks);
+          setTasks(clean);
+          writeLocalBackup(clean);
+        } else {
+          // ── MERGE: union of both sets, newer updatedAt wins per task id ──
+          const merged = mergeTasks(sheetsTasks, localTasks);
+          setTasks(merged);
+          writeLocalBackup(merged);
+
+          // If merge produced more tasks than Sheets had, push the merged
+          // result back so the other user gets the full picture too
+          if (merged.length > sheetsTasks.length) {
+            fetch(SHEETS_API_URL, { method:'POST', redirect:'follow', body: JSON.stringify(merged) })
+              .then(() => setLastSaveTime(new Date().toLocaleTimeString()))
+              .catch(() => {});
+            setSaveError(`Merged ${merged.length - sheetsTasks.length} local-only task(s) back to Sheets.`);
+          }
+        }
       } else {
-        const b = localStorage.getItem('tasks-backup-latest');
-        if (b) { const p = JSON.parse(b); if (p.length > 0) { setTasks(p.map(normalizeTask).filter(Boolean)); setSaveError('Loaded from backup. Click Sync.'); } }
+        // Sheets returned empty — keep local, don't wipe
+        if (localTasks.length > 0) setSaveError('Sheets returned no data — showing local backup.');
       }
     } catch(e) {
-      const b = localStorage.getItem('tasks-backup-latest');
-      if (b) { try { setTasks(JSON.parse(b).map(normalizeTask).filter(Boolean)); setSaveError('Loaded from backup. Click Sync.'); } catch(e2) { setTasks([]); } }
+      if (localTasks.length > 0) setSaveError('Could not reach Sheets — showing local backup.');
       else setTasks([]);
     } finally { setIsLoading(false); }
   };
@@ -354,42 +433,49 @@ const DailyTaskTracker = ({ onLogout }) => {
   const saveTasksToStorage = async (list) => {
     if (!list || list.length === 0) return { success: false };
     setIsSaving(true); setSaveError(null);
-    const clean = removeDuplicateTasks(list.map(normalizeTask).filter(Boolean));
-    try { localStorage.setItem('tasks-backup-latest', JSON.stringify(clean)); } catch(e) {}
+    // Stamp each task with current time before saving
+    const clean = removeDuplicateTasks(list.map(t => stampTask(normalizeTask(t))).filter(Boolean));
+    writeLocalBackup(clean);
     try {
       await fetch(SHEETS_API_URL, { method:'POST', redirect:'follow', body: JSON.stringify(clean) });
-      setLastSaveTime(new Date().toLocaleTimeString()); return { success: true };
-    } catch(e) { setSaveError('Save may have failed. Click Retry.'); return { success: false }; }
-    finally { setIsSaving(false); }
+      setLastSaveTime(new Date().toLocaleTimeString());
+      return { success: true };
+    } catch(e) {
+      setSaveError('Save may have failed — will retry on next sync.');
+      return { success: false };
+    } finally { setIsSaving(false); }
   };
 
   const restoreFromBackup = () => {
-    const b = localStorage.getItem('tasks-backup-latest');
-    if (b) { try { const p = JSON.parse(b).map(normalizeTask).filter(Boolean); setTasks(p); alert('Restored ' + p.length + ' tasks'); } catch(e) { alert('Backup corrupted'); } }
-    else alert('No backup found');
+    const best = getBestLocalBackup();
+    if (best.length > 0) {
+      try { setTasks(best.map(normalizeTask).filter(Boolean)); alert('Restored ' + best.length + ' tasks from local backup'); }
+      catch(e) { alert('Backup corrupted'); }
+    } else { alert('No local backup found'); }
   };
 
   const addTask = async () => {
     if (!formData.description.trim()) { alert('Please enter a task description'); return; }
-    const t = normalizeTask({ id: Date.now(), ...formData, completed: false, carriedOver: false });
+    const t = stampTask(normalizeTask({ id: Date.now(), ...formData, completed: false, carriedOver: false }));
     const u = [t, ...tasks]; setTasks(u);
     await saveTasksToStorage(u);
     setFormData({ category:'Review', tag:'Office', description:'', emailLink:'', urgent:false, attachments:[], comeBackDate:'' });
   };
 
-  const toggleComplete = async (id) => { const u = tasks.map(t => t.id===id ? {...t, completed:!t.completed} : t); setTasks(u); await saveTasksToStorage(u); };
+  const stamp = (t) => ({ ...t, updatedAt: Date.now() });
+  const toggleComplete = async (id) => { const u = tasks.map(t => t.id===id ? stamp({...t, completed:!t.completed}) : t); setTasks(u); await saveTasksToStorage(u); };
   const deleteTask = async (id) => { if (window.confirm('Delete this task?')) { const u = tasks.filter(t => t.id!==id); setTasks(u); await saveTasksToStorage(u); } };
-  const toggleUrgent = async (id) => { const u = tasks.map(t => t.id===id ? {...t, urgent:!t.urgent} : t); setTasks(u); await saveTasksToStorage(u); };
-  const toggleCarriedOver = async (id) => { const u = tasks.map(t => t.id===id ? {...t, carriedOver:!t.carriedOver} : t); setTasks(u); await saveTasksToStorage(u); };
-  const setComeBackDate = async (id, date) => { const u = tasks.map(t => t.id===id ? {...t, comeBackDate:date} : t); setTasks(u); await saveTasksToStorage(u); };
-  const clearComeBackDate = async (id) => { const u = tasks.map(t => t.id===id ? {...t, comeBackDate:''} : t); setTasks(u); await saveTasksToStorage(u); };
+  const toggleUrgent = async (id) => { const u = tasks.map(t => t.id===id ? stamp({...t, urgent:!t.urgent}) : t); setTasks(u); await saveTasksToStorage(u); };
+  const toggleCarriedOver = async (id) => { const u = tasks.map(t => t.id===id ? stamp({...t, carriedOver:!t.carriedOver}) : t); setTasks(u); await saveTasksToStorage(u); };
+  const setComeBackDate = async (id, date) => { const u = tasks.map(t => t.id===id ? stamp({...t, comeBackDate:date}) : t); setTasks(u); await saveTasksToStorage(u); };
+  const clearComeBackDate = async (id) => { const u = tasks.map(t => t.id===id ? stamp({...t, comeBackDate:''}) : t); setTasks(u); await saveTasksToStorage(u); };
 
   const [editingNotes, setEditingNotes] = useState({});
   const updateLocalNote = (id, type, val) => setEditingNotes(prev => ({ ...prev, [id]: { ...prev[id], [type]: val } }));
   const saveNoteOnBlur = async (id, type) => {
     const val = editingNotes[id]?.[type];
     if (val === undefined) return;
-    const u = tasks.map(t => t.id===id ? {...t, [type]:val} : t); setTasks(u); await saveTasksToStorage(u);
+    const u = tasks.map(t => t.id===id ? stamp({...t, [type]:val}) : t); setTasks(u); await saveTasksToStorage(u);
     setEditingNotes(prev => { const n = {...prev}; if (n[id]) { delete n[id][type]; if (!Object.keys(n[id]).length) delete n[id]; } return n; });
   };
   const getNoteValue = (task, type) => editingNotes[task.id]?.[type] !== undefined ? editingNotes[task.id][type] : safeString(task[type]);
@@ -399,7 +485,7 @@ const DailyTaskTracker = ({ onLogout }) => {
   const saveEmailOnBlur = async (id) => {
     const val = editingEmails[id];
     if (val === undefined) return;
-    const u = tasks.map(t => t.id===id ? {...t, emailLink:val} : t); setTasks(u); await saveTasksToStorage(u);
+    const u = tasks.map(t => t.id===id ? stamp({...t, emailLink:val}) : t); setTasks(u); await saveTasksToStorage(u);
     setEditingEmails(prev => { const n={...prev}; delete n[id]; return n; });
   };
   const getEmailValue = (task) => editingEmails[task.id] !== undefined ? editingEmails[task.id] : safeString(task.emailLink);
@@ -426,7 +512,7 @@ const DailyTaskTracker = ({ onLogout }) => {
     if (!formData.description.trim()) { alert('Please enter a task description'); return; }
     const orig = tasks.find(t => t.id===editingTaskId);
     if (!orig) { cancelEditTask(); return; }
-    const u = [normalizeTask({...orig,...formData}), ...tasks.filter(t => t.id!==editingTaskId)];
+    const u = [stamp(normalizeTask({...orig,...formData})), ...tasks.filter(t => t.id!==editingTaskId)];
     setTasks(u); await saveTasksToStorage(u); cancelEditTask();
   };
   const cancelEditTask = () => { setEditingTaskId(null); setFormData({ category:'Review', tag:'Office', description:'', emailLink:'', urgent:false, attachments:[], comeBackDate:'' }); };
@@ -665,7 +751,7 @@ const DailyTaskTracker = ({ onLogout }) => {
         <div className={`rounded-2xl shadow-2xl p-6 mb-6 ${darkMode?'bg-gray-800 text-white':'bg-white'}`}>
           <div className="flex justify-between items-center flex-wrap gap-4">
             <div>
-              <h1 className={`text-3xl font-serif font-bold mb-2 ${darkMode?'text-white':'text-indigo-900'}`}>Dr. K Workflow <span className="text-xs font-normal text-gray-400 align-middle">v2.6.1</span></h1>
+              <h1 className={`text-3xl font-serif font-bold mb-2 ${darkMode?'text-white':'text-indigo-900'}`}>Dr. K Workflow <span className="text-xs font-normal text-gray-400 align-middle">v2.7</span></h1>
               <p className={darkMode?'text-gray-300':'text-gray-600'}>{new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}</p>
               <div className={`mt-3 p-3 rounded-lg border-l-4 ${darkMode?'bg-gray-700 border-purple-400':'bg-purple-50 border-purple-500'}`}>
                 <p className={`text-sm italic ${darkMode?'text-gray-300':'text-gray-700'}`}>"{dailyQuote.quote}"</p>
