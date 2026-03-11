@@ -466,7 +466,7 @@ const DailyTaskTracker = ({ onLogout }) => {
           // If merge produced more tasks than Sheets had, push the merged
           // result back so the other user gets the full picture too
           if (merged.length > sheetsTasks.length) {
-            fetch(SHEETS_API_URL, { method:'POST', redirect:'follow', body: JSON.stringify(merged) })
+            fetch(SHEETS_API_URL, { method:'POST', redirect:'follow', body: JSON.stringify({ type:'tasks', tasks: merged }) })
               .then(() => setLastSaveTime(new Date().toLocaleTimeString()))
               .catch(() => {});
             setSaveError(`Merged ${merged.length - sheetsTasks.length} local-only task(s) back to Sheets.`);
@@ -489,7 +489,7 @@ const DailyTaskTracker = ({ onLogout }) => {
     const clean = removeDuplicateTasks(list.map(t => stampTask(normalizeTask(t))).filter(Boolean));
     writeLocalBackup(clean);
     try {
-      await fetch(SHEETS_API_URL, { method:'POST', redirect:'follow', body: JSON.stringify(clean) });
+      await fetch(SHEETS_API_URL, { method:'POST', redirect:'follow', body: JSON.stringify({ type:'tasks', tasks: clean }) });
       setLastSaveTime(new Date().toLocaleTimeString());
       return { success: true };
     } catch(e) {
