@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,7 +6,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <title>Dr. K Workflow v2.8</title>
+  <title>Dr. K Workflow v2.9</title>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -193,7 +192,7 @@ const DailyTaskTracker = ({ onLogout }) => {
   const cancelEditNewHire = () => { setEditingNewHireId(null); setNewHireForm(EMPTY_HIRE); };
 
   // ── TRAVEL ──────────────────────────────────────────────────────────────────
-  const [travelEntries, setTravelEntries] = useState([
+  const defaultTravelEntries = [
     { id: 1, type:"Flight", description:"ATL to Memphis - Flight DL1700 Departs at 4:15 PM", startDate:"2026-02-26", endDate:"2026-02-26", location:"Memphis", confirmation:"#GX5JAV", url:"", tags:["Flight"] },
     { id: 2, type:"Hotel", description:"Hilton Memphis Hotel", startDate:"2026-02-26", endDate:"2026-02-28", location:"Memphis", confirmation:"3395896664", url:"", tags:["Hotel"] },
     { id: 3, type:"Course", description:"The Lifestyle Formula In-Person Course with Dr. Kyle Fagala", startDate:"2026-02-26", endDate:"2026-02-28", location:"Memphis", confirmation:"#135768106673", url:"", tags:["Course","Event"] },
@@ -205,13 +204,28 @@ const DailyTaskTracker = ({ onLogout }) => {
     { id: 9, type:"Event", description:"Transforming Lives with The Pitts21 Platform", startDate:"2026-06-05", endDate:"2026-06-06", location:"Atlanta, GA", confirmation:"", url:"", tags:["Event"] },
     { id: 10, type:"Event", description:"Koch Family Reunion – Yellowstone 2026", startDate:"2026-06-20", endDate:"2026-06-27", location:"Yellowstone", confirmation:"TBD", url:"", tags:["Event"] },
     { id: 11, type:"Flight", description:"Return to ATL from Yellowstone", startDate:"2026-06-27", endDate:"2026-06-27", location:"TBD", confirmation:"TBD", url:"", tags:["Flight"] }
-  ]);
+  ];
+  const [travelEntries, setTravelEntries] = useState(() => {
+    try { const s = localStorage.getItem('drk-travel-entries'); return s ? JSON.parse(s) : defaultTravelEntries; } catch(e) { return defaultTravelEntries; }
+  });
+  const saveTravelEntries = (entries) => {
+    setTravelEntries(entries);
+    try { localStorage.setItem('drk-travel-entries', JSON.stringify(entries)); } catch(e) {}
+  };
   const [travelForm, setTravelForm] = useState({ type:'Flight', description:'', startDate:'', endDate:'', location:'', confirmation:'', url:'', tags:[] });
   const [editingTravelId, setEditingTravelId] = useState(null);
   const [travelSearchQuery, setTravelSearchQuery] = useState('');
   const [travelTagFilter, setTravelTagFilter] = useState('all');
   const travelTags = ['Flight','Hotel','Car','Event','Conference','Course'];
-  const [conferenceAgenda, setConferenceAgenda] = useState('');
+  const [conferenceAgenda, setConferenceAgenda] = useState(() => {
+    try { return localStorage.getItem('drk-conference-agenda') || ''; } catch(e) { return ''; }
+  });
+  const saveConferenceAgenda = (val) => {
+    setConferenceAgenda(val);
+    try { localStorage.setItem('drk-conference-agenda', val); } catch(e) {}
+  };
+  const [editingConferenceId, setEditingConferenceId] = useState(null);
+  const [confForm, setConfForm] = useState({ description:'', startDate:'', endDate:'', location:'', confirmation:'', url:'', tags:['Conference'] });
 
   // ── CONTACTS ────────────────────────────────────────────────────────────────
   const [contacts, setContacts] = useState([
@@ -534,13 +548,19 @@ const DailyTaskTracker = ({ onLogout }) => {
   // Travel helpers
   const addTravelEntry = () => {
     if (!travelForm.description||!travelForm.startDate) { alert('Please enter description and start date'); return; }
-    setTravelEntries([...travelEntries,{id:Date.now(),...travelForm}].sort((a,b)=>new Date(a.startDate)-new Date(b.startDate)));
+    saveTravelEntries([...travelEntries,{id:Date.now(),...travelForm}].sort((a,b)=>new Date(a.startDate)-new Date(b.startDate)));
     setTravelForm({type:'Flight',description:'',startDate:'',endDate:'',location:'',confirmation:'',url:'',tags:[]});
   };
-  const deleteTravelEntry = (id) => { if (window.confirm('Delete this travel entry?')) setTravelEntries(travelEntries.filter(e=>e.id!==id)); };
+  const deleteTravelEntry = (id) => { if (window.confirm('Delete this travel entry?')) saveTravelEntries(travelEntries.filter(e=>e.id!==id)); };
   const startEditTravel = (e) => { setEditingTravelId(e.id); setTravelForm({type:e.type||'Flight',description:e.description||'',startDate:e.startDate||'',endDate:e.endDate||'',location:e.location||'',confirmation:e.confirmation||'',url:e.url||'',tags:e.tags||[]}); };
-  const saveEditTravel = () => { setTravelEntries(travelEntries.map(e=>e.id===editingTravelId?{...e,...travelForm}:e).sort((a,b)=>new Date(a.startDate)-new Date(b.startDate))); setEditingTravelId(null); setTravelForm({type:'Flight',description:'',startDate:'',endDate:'',location:'',confirmation:'',url:'',tags:[]}); };
+  const saveEditTravel = () => { saveTravelEntries(travelEntries.map(e=>e.id===editingTravelId?{...e,...travelForm}:e).sort((a,b)=>new Date(a.startDate)-new Date(b.startDate))); setEditingTravelId(null); setTravelForm({type:'Flight',description:'',startDate:'',endDate:'',location:'',confirmation:'',url:'',tags:[]}); };
   const cancelEditTravel = () => { setEditingTravelId(null); setTravelForm({type:'Flight',description:'',startDate:'',endDate:'',location:'',confirmation:'',url:'',tags:[]}); };
+
+  // Conference card editing — these edit directly within travelEntries
+  const startEditConference = (e) => { setEditingConferenceId(e.id); setConfForm({description:e.description||'',startDate:e.startDate||'',endDate:e.endDate||'',location:e.location||'',confirmation:e.confirmation||'',url:e.url||'',tags:e.tags||['Conference']}); };
+  const saveEditConference = () => { saveTravelEntries(travelEntries.map(e=>e.id===editingConferenceId?{...e,...confForm}:e).sort((a,b)=>new Date(a.startDate)-new Date(b.startDate))); setEditingConferenceId(null); };
+  const cancelEditConference = () => setEditingConferenceId(null);
+
   const getUpcomingTravel = () => { const today=new Date(); today.setHours(0,0,0,0); return travelEntries.filter(e=>{const d=new Date(e.startDate);d.setHours(0,0,0,0);const days=Math.ceil((d-today)/(1000*60*60*24));return days>=0&&days<=14;}).map(e=>{const d=new Date(e.startDate);d.setHours(0,0,0,0);return{...e,daysUntil:Math.ceil((d-today)/(1000*60*60*24))};}); };
   const getTravelForDate = (yr,mo,day) => { const ds=`${yr}-${String(mo+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`; const d=new Date(ds); return travelEntries.filter(e=>{const s=new Date(e.startDate);const en=new Date(e.endDate||e.startDate);return d>=s&&d<=en;}); };
 
@@ -786,7 +806,7 @@ const DailyTaskTracker = ({ onLogout }) => {
         <div className={`rounded-2xl shadow-2xl p-6 mb-6 ${darkMode?'bg-gray-800 text-white':'bg-white'}`}>
           <div className="flex justify-between items-center flex-wrap gap-4">
             <div>
-              <h1 className={`text-3xl font-serif font-bold mb-2 ${darkMode?'text-white':'text-indigo-900'}`}>Dr. K Workflow <span className="text-xs font-normal text-gray-400 align-middle">v2.8</span></h1>
+              <h1 className={`text-3xl font-serif font-bold mb-2 ${darkMode?'text-white':'text-indigo-900'}`}>Dr. K Workflow <span className="text-xs font-normal text-gray-400 align-middle">v2.9</span></h1>
               <p className={darkMode?'text-gray-300':'text-gray-600'}>{new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}</p>
               <div className={`mt-3 p-3 rounded-lg border-l-4 ${darkMode?'bg-gray-700 border-purple-400':'bg-purple-50 border-purple-500'}`}>
                 <p className={`text-sm italic ${darkMode?'text-gray-300':'text-gray-700'}`}>"{dailyQuote.quote}"</p>
@@ -1211,7 +1231,6 @@ const DailyTaskTracker = ({ onLogout }) => {
                 🎤 Conference Information
               </h3>
               <div className={`rounded-xl border-2 border-indigo-200 ${darkMode?'bg-gray-700':'bg-indigo-50'} p-5`}>
-                {/* Upcoming conferences pulled from travel entries tagged Conference or Event */}
                 {(() => {
                   const today = new Date(); today.setHours(0,0,0,0);
                   const confEntries = travelEntries
@@ -1224,14 +1243,56 @@ const DailyTaskTracker = ({ onLogout }) => {
                     <div className="space-y-3">
                       {upcoming.length === 0 && <p className="text-gray-500 text-sm italic">No upcoming conferences or events.</p>}
                       {upcoming.map(e => (
-                        <div key={e.id} className={`flex items-start gap-3 p-3 rounded-lg border ${darkMode?'bg-gray-600 border-gray-500':'bg-white border-indigo-200'}`}>
-                          <span className="text-2xl mt-0.5">{e.tags?.includes('Conference')?'🎤':e.tags?.includes('Course')?'📚':'📅'}</span>
-                          <div className="flex-1 min-w-0">
-                            <div className="font-semibold text-sm">{e.url ? <a href={e.url} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">{e.description}</a> : e.description}</div>
-                            <div className="text-xs text-gray-500 mt-0.5">{fmtDate(e.startDate)}{e.endDate&&e.endDate!==e.startDate?` – ${fmtDate(e.endDate)}`:''} · {e.location}</div>
-                            {e.confirmation && <div className="text-xs text-gray-400 font-mono mt-0.5">Conf# {e.confirmation}</div>}
-                          </div>
-                          {(() => { const days=Math.ceil((new Date(e.startDate)-today)/(1000*60*60*24)); return days>=0&&days<=30?<span className={`text-xs px-2 py-1 rounded-full font-semibold whitespace-nowrap ${days===0?'bg-green-100 text-green-700':days<=7?'bg-amber-100 text-amber-700':'bg-blue-100 text-blue-700'}`}>{days===0?'Today':days===1?'Tomorrow':`${days}d away`}</span>:null; })()}
+                        <div key={e.id}>
+                          {editingConferenceId === e.id ? (
+                            /* ── INLINE EDIT FORM ── */
+                            <div className={`p-4 rounded-lg border-2 border-indigo-400 ${darkMode?'bg-gray-600':'bg-white'} space-y-3`}>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div className="md:col-span-2">
+                                  <label className="text-xs font-semibold text-gray-500 block mb-1">Description</label>
+                                  <input type="text" value={confForm.description} onChange={e=>setConfForm({...confForm,description:e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm"/>
+                                </div>
+                                <div>
+                                  <label className="text-xs font-semibold text-gray-500 block mb-1">Start Date</label>
+                                  <input type="date" value={confForm.startDate} onChange={e=>setConfForm({...confForm,startDate:e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm"/>
+                                </div>
+                                <div>
+                                  <label className="text-xs font-semibold text-gray-500 block mb-1">End Date</label>
+                                  <input type="date" value={confForm.endDate} onChange={e=>setConfForm({...confForm,endDate:e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm"/>
+                                </div>
+                                <div>
+                                  <label className="text-xs font-semibold text-gray-500 block mb-1">Location</label>
+                                  <input type="text" value={confForm.location} onChange={e=>setConfForm({...confForm,location:e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm"/>
+                                </div>
+                                <div>
+                                  <label className="text-xs font-semibold text-gray-500 block mb-1">Confirmation #</label>
+                                  <input type="text" value={confForm.confirmation} onChange={e=>setConfForm({...confForm,confirmation:e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm"/>
+                                </div>
+                                <div className="md:col-span-2">
+                                  <label className="text-xs font-semibold text-gray-500 block mb-1">URL (makes description a link)</label>
+                                  <input type="url" value={confForm.url} onChange={e=>setConfForm({...confForm,url:e.target.value})} placeholder="https://..." className="w-full px-3 py-2 border rounded-lg text-sm"/>
+                                </div>
+                              </div>
+                              <div className="flex gap-2">
+                                <button onClick={saveEditConference} className="flex-1 py-2 bg-green-500 text-white rounded-lg text-sm font-semibold">✓ Save</button>
+                                <button onClick={cancelEditConference} className="flex-1 py-2 bg-gray-400 text-white rounded-lg text-sm">Cancel</button>
+                              </div>
+                            </div>
+                          ) : (
+                            /* ── DISPLAY CARD ── */
+                            <div className={`flex items-start gap-3 p-3 rounded-lg border group ${darkMode?'bg-gray-600 border-gray-500':'bg-white border-indigo-200'}`}>
+                              <span className="text-2xl mt-0.5">{e.tags?.includes('Conference')?'🎤':e.tags?.includes('Course')?'📚':'📅'}</span>
+                              <div className="flex-1 min-w-0">
+                                <div className="font-semibold text-sm">
+                                  {e.url ? <a href={e.url} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">{e.description}</a> : e.description}
+                                </div>
+                                <div className="text-xs text-gray-500 mt-0.5">{fmtDate(e.startDate)}{e.endDate&&e.endDate!==e.startDate?` – ${fmtDate(e.endDate)}`:''} · {e.location}</div>
+                                {e.confirmation && <div className="text-xs text-gray-400 font-mono mt-0.5">Conf# {e.confirmation}</div>}
+                              </div>
+                              {(() => { const days=Math.ceil((new Date(e.startDate)-today)/(1000*60*60*24)); return days>=0&&days<=30?<span className={`text-xs px-2 py-1 rounded-full font-semibold whitespace-nowrap self-start mt-1 ${days===0?'bg-green-100 text-green-700':days<=7?'bg-amber-100 text-amber-700':'bg-blue-100 text-blue-700'}`}>{days===0?'Today':days===1?'Tomorrow':`${days}d away`}</span>:null; })()}
+                              <button onClick={()=>startEditConference(e)} className="opacity-0 group-hover:opacity-100 transition-opacity ml-1 text-gray-400 hover:text-indigo-600 text-sm px-2 py-1 rounded" title="Edit">✏️</button>
+                            </div>
+                          )}
                         </div>
                       ))}
                       {past.length > 0 && (
@@ -1239,12 +1300,13 @@ const DailyTaskTracker = ({ onLogout }) => {
                           <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-600">Show {past.length} past event{past.length>1?'s':''}</summary>
                           <div className="mt-2 space-y-2">
                             {past.map(e=>(
-                              <div key={e.id} className="flex items-start gap-3 p-2 rounded-lg bg-gray-50 border border-gray-200 opacity-60">
+                              <div key={e.id} className="flex items-start gap-3 p-2 rounded-lg bg-gray-50 border border-gray-200 opacity-60 group">
                                 <span className="text-lg mt-0.5">{e.tags?.includes('Conference')?'🎤':e.tags?.includes('Course')?'📚':'📅'}</span>
                                 <div className="flex-1 min-w-0">
                                   <div className="font-medium text-sm text-gray-500">{e.description}</div>
                                   <div className="text-xs text-gray-400">{fmtDate(e.startDate)}{e.endDate&&e.endDate!==e.startDate?` – ${fmtDate(e.endDate)}`:''} · {e.location}</div>
                                 </div>
+                                <button onClick={()=>startEditConference(e)} className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-indigo-600 text-sm px-2 py-1 rounded" title="Edit">✏️</button>
                               </div>
                             ))}
                           </div>
@@ -1259,7 +1321,7 @@ const DailyTaskTracker = ({ onLogout }) => {
                   <label className={`block text-sm font-semibold mb-2 ${darkMode?'text-gray-200':'text-indigo-800'}`}>📋 Upcoming Conference Agenda / Notes</label>
                   <textarea
                     value={conferenceAgenda}
-                    onChange={e=>setConferenceAgenda(e.target.value)}
+                    onChange={e=>saveConferenceAgenda(e.target.value)}
                     placeholder="Paste agenda, session schedule, speaker info, notes..."
                     rows={6}
                     className={`w-full px-4 py-3 rounded-lg border text-sm resize-y ${darkMode?'bg-gray-800 border-gray-600 text-white':'bg-white border-indigo-200 text-gray-800'} focus:outline-none focus:border-indigo-400`}
