@@ -6,7 +6,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <title>Dr. K Workflow v2.9</title>
+  <title>Dr. K Workflow v3.2</title>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -193,39 +193,74 @@ const DailyTaskTracker = ({ onLogout }) => {
 
   // ── TRAVEL ──────────────────────────────────────────────────────────────────
   const defaultTravelEntries = [
-    { id: 1, type:"Flight", description:"ATL to Memphis - Flight DL1700 Departs at 4:15 PM", startDate:"2026-02-26", endDate:"2026-02-26", location:"Memphis", confirmation:"#GX5JAV", url:"", tags:["Flight"] },
-    { id: 2, type:"Hotel", description:"Hilton Memphis Hotel", startDate:"2026-02-26", endDate:"2026-02-28", location:"Memphis", confirmation:"3395896664", url:"", tags:["Hotel"] },
-    { id: 3, type:"Course", description:"The Lifestyle Formula In-Person Course with Dr. Kyle Fagala", startDate:"2026-02-26", endDate:"2026-02-28", location:"Memphis", confirmation:"#135768106673", url:"", tags:["Course","Event"] },
-    { id: 4, type:"Flight", description:"Memphis to ATL - Flight DL1693 Departs at 4:30", startDate:"2026-02-28", endDate:"2026-02-28", location:"Atlanta, GA", confirmation:"#GX5JAV", url:"", tags:["Flight"] },
-    { id: 5, type:"Flight", description:"ATL to Phoenix", startDate:"2026-04-17", endDate:"2026-04-17", location:"TBD", confirmation:"TBD", url:"", tags:["Flight"] },
-    { id: 6, type:"Event", description:"Nicole McFarlane - Office Manager Workshop", startDate:"2026-04-17", endDate:"2026-04-18", location:"Phoenix", confirmation:"TBD", url:"", tags:["Event","Conference"] },
-    { id: 7, type:"Hotel", description:"Phoenix Hotel", startDate:"2026-04-17", endDate:"2026-04-18", location:"Phoenix", confirmation:"TBD", url:"", tags:["Hotel"] },
-    { id: 8, type:"Flight", description:"Phoenix to ATL", startDate:"2026-04-18", endDate:"2026-04-18", location:"TBD", confirmation:"TBD", url:"", tags:["Flight"] },
-    { id: 9, type:"Event", description:"Transforming Lives with The Pitts21 Platform", startDate:"2026-06-05", endDate:"2026-06-06", location:"Atlanta, GA", confirmation:"", url:"", tags:["Event"] },
-    { id: 10, type:"Event", description:"Koch Family Reunion – Yellowstone 2026", startDate:"2026-06-20", endDate:"2026-06-27", location:"Yellowstone", confirmation:"TBD", url:"", tags:["Event"] },
-    { id: 11, type:"Flight", description:"Return to ATL from Yellowstone", startDate:"2026-06-27", endDate:"2026-06-27", location:"TBD", confirmation:"TBD", url:"", tags:["Flight"] }
+    { id: 1, type:"Flight", description:"ATL to Memphis", startDate:"2026-02-26", endDate:"2026-02-26", location:"Memphis", confirmation:"#GX5JAV", seat:"", url:"", agenda:"Flight DL1700 Departs at 4:15 PM", tags:["Flight"] },
+    { id: 2, type:"Hotel", description:"Hilton Memphis Hotel", startDate:"2026-02-26", endDate:"2026-02-28", location:"Memphis", confirmation:"3395896664", seat:"", url:"", agenda:"", tags:["Hotel"] },
+    { id: 3, type:"Course", description:"The Lifestyle Formula In-Person Course with Dr. Kyle Fagala", startDate:"2026-02-26", endDate:"2026-02-28", location:"Memphis", confirmation:"#135768106673", seat:"", url:"", agenda:"", tags:["Course","Event"] },
+    { id: 4, type:"Flight", description:"Memphis to ATL", startDate:"2026-02-28", endDate:"2026-02-28", location:"Atlanta, GA", confirmation:"#GX5JAV", seat:"", url:"", agenda:"Flight DL1693 Departs at 4:30", tags:["Flight"] },
+    { id: 5, type:"Flight", description:"ATL to Phoenix", startDate:"2026-04-17", endDate:"2026-04-17", location:"Phoenix", confirmation:"GOISAP", seat:"Classic 11D Aisle", url:"", agenda:"Delta Comfort · 7:59PM - 9:11PM", tags:["Flight"] },
+    { id: 6, type:"Event", description:"Nicole McFarlane - Office Manager Workshop", startDate:"2026-04-17", endDate:"2026-04-18", location:"315 E Ocotillo Rd Phoenix, AZ 85012", confirmation:"TBD", seat:"", url:"", agenda:"Friday: 7:30am – 8:00am Breakfast (provided)\n8:00am - 12:00pm Workshop\n12:00pm - 1:00pm Lunch (provided)\n1:00pm - 5:00pm Workshop\n\nSaturday: 7:30am – 8:00am Breakfast (provided)\n8:00am - 11:00am Workshop\n11:00am - 12:00pm Lunch (Provided)\n12:00pm - 3:00pm Workshop", tags:["Event","Conference"] },
+    { id: 7, type:"Hotel", description:"DoubleTree by Hilton Phoenix Midtown", startDate:"2026-04-17", endDate:"2026-04-18", location:"4000 N. Central Ave, Phoenix, AZ 85012", confirmation:"98009850", seat:"", url:"", agenda:"", tags:["Hotel"] },
+    { id: 8, type:"Flight", description:"Phoenix to ATL", startDate:"2026-04-18", endDate:"2026-04-18", location:"Atlanta, GA", confirmation:"GOISAP", seat:"Classic 10C Aisle", url:"", agenda:"Delta Comfort · 10:35PM – Sun, Apr 19, 5:10AM", tags:["Flight"] },
+    { id: 9, type:"Event", description:"Transforming Lives with The Pitts21 Platform", startDate:"2026-06-05", endDate:"2026-06-06", location:"2625 Circle 75 Pkwy SE, Atlanta, GA", confirmation:"14101439633", seat:"", url:"", agenda:"Friday, June 5 · 8:00 AM – 5:00 PM\n~7 CE Credits\nSpeakers: Dr. Tom Pitts, Dr. Kyle Tuttle, Dr. Kim Smith, Brandon Martin (OC Orthodontics)\n\n8:00–8:30 AM · Registration & Breakfast\n8:30–9:30 AM · Aesthetic Keys to Youthful, Confident Smiles (Dr. Tom Pitts)\n9:30–10:30 AM · Unlocking the Power of Smile Arc Protection (SAP)\n10:30–10:45 AM · Morning Break ☕\n10:45 AM–12:00 PM · The Critical Role of Arch Development in Aesthetic Outcomes\n12:00–1:00 PM · Lunch & Networking 🍽\n1:00–2:30 PM · Wow-Worthy Case Presentations\n2:30–3:00 PM · Increasing Profitability Without Complicating Workflow\n3:00–3:15 PM · Afternoon Break ☕\n3:15–4:15 PM · Where Bracket Meets Digital\n4:15–5:00 PM · Implementation Session + Q&A", tags:["Event"] },
+    { id: 10, type:"Event", description:"Koch Family Reunion – Yellowstone 2026", startDate:"2026-06-20", endDate:"2026-06-27", location:"Cabin near Yellowstone National Park (Island Park, ID)", confirmation:"", seat:"", url:"", agenda:"June 20–27, 2026 (Saturday–Saturday)\n8-bedroom lodge near Island Park, Idaho (~30 min from Yellowstone)\nAmenities: hot tub, sauna, game room, golf simulator\n\nConfirmed attendees: David & Amy Koch, Rachel Bjorkman", tags:["Event"] },
+    { id: 11, type:"Flight", description:"Return to ATL from Yellowstone", startDate:"2026-06-27", endDate:"2026-06-27", location:"Atlanta, GA", confirmation:"TBD", seat:"", url:"", agenda:"", tags:["Flight"] }
   ];
   const [travelEntries, setTravelEntries] = useState(() => {
     try { const s = localStorage.getItem('drk-travel-entries'); return s ? JSON.parse(s) : defaultTravelEntries; } catch(e) { return defaultTravelEntries; }
   });
-  const saveTravelEntries = (entries) => {
+  const saveTravelEntries = async (entries) => {
     setTravelEntries(entries);
     try { localStorage.setItem('drk-travel-entries', JSON.stringify(entries)); } catch(e) {}
+    try { await fetch(SHEETS_API_URL, { method:'POST', redirect:'follow', body: JSON.stringify({ type:'travel', entries }) }); } catch(e) {}
   };
-  const [travelForm, setTravelForm] = useState({ type:'Flight', description:'', startDate:'', endDate:'', location:'', confirmation:'', url:'', tags:[] });
+  const loadTravelFromSheets = async () => {
+    try {
+      const res = await fetch(SHEETS_API_URL + '?action=getTravel');
+      const data = JSON.parse(await res.text());
+      if (data.success && Array.isArray(data.entries) && data.entries.length > 0) {
+        setTravelEntries(data.entries);
+        try { localStorage.setItem('drk-travel-entries', JSON.stringify(data.entries)); } catch(e) {}
+      }
+    } catch(e) { /* keep localStorage version already loaded in useState */ }
+  };
+  const [travelForm, setTravelForm] = useState({ type:'Flight', description:'', startDate:'', endDate:'', location:'', confirmation:'', seat:'', url:'', agenda:'', tags:[] });
   const [editingTravelId, setEditingTravelId] = useState(null);
+  const [expandedTravelId, setExpandedTravelId] = useState(null);
   const [travelSearchQuery, setTravelSearchQuery] = useState('');
   const [travelTagFilter, setTravelTagFilter] = useState('all');
   const travelTags = ['Flight','Hotel','Car','Event','Conference','Course'];
   const [conferenceAgenda, setConferenceAgenda] = useState(() => {
     try { return localStorage.getItem('drk-conference-agenda') || ''; } catch(e) { return ''; }
   });
-  const saveConferenceAgenda = (val) => {
+  const saveConferenceAgenda = async (val) => {
     setConferenceAgenda(val);
     try { localStorage.setItem('drk-conference-agenda', val); } catch(e) {}
   };
   const [editingConferenceId, setEditingConferenceId] = useState(null);
-  const [confForm, setConfForm] = useState({ description:'', startDate:'', endDate:'', location:'', confirmation:'', url:'', tags:['Conference'] });
+  const [confForm, setConfForm] = useState({ description:'', startDate:'', endDate:'', location:'', confirmation:'', seat:'', url:'', agenda:'', tags:['Conference'] });
+  const defaultTravelPrefs = {
+    flights: '', hotels: '', dining: '', ground: '', other: ''
+  };
+  const [travelPrefs, setTravelPrefs] = useState(() => {
+    try { const s = localStorage.getItem('drk-travel-prefs'); return s ? JSON.parse(s) : defaultTravelPrefs; } catch(e) { return defaultTravelPrefs; }
+  });
+  const [editingPrefs, setEditingPrefs] = useState(false);
+  const [prefsForm, setPrefsForm] = useState(defaultTravelPrefs);
+  const saveTravelPrefs = async (prefs) => {
+    setTravelPrefs(prefs);
+    try { localStorage.setItem('drk-travel-prefs', JSON.stringify(prefs)); } catch(e) {}
+    try { await fetch(SHEETS_API_URL, { method:'POST', redirect:'follow', body: JSON.stringify({ type:'travelPrefs', prefs }) }); } catch(e) {}
+  };
+  const loadTravelPrefsFromSheets = async () => {
+    try {
+      const res = await fetch(SHEETS_API_URL + '?action=getTravelPrefs');
+      const data = JSON.parse(await res.text());
+      if (data.success && data.prefs) {
+        setTravelPrefs(data.prefs);
+        try { localStorage.setItem('drk-travel-prefs', JSON.stringify(data.prefs)); } catch(e) {}
+      }
+    } catch(e) { /* keep localStorage version */ }
+  };
 
   // ── CONTACTS ────────────────────────────────────────────────────────────────
   const [contacts, setContacts] = useState([
@@ -311,6 +346,8 @@ const DailyTaskTracker = ({ onLogout }) => {
   const [formData, setFormData] = useState({ category:'Review', tag:'Office', description:'', emailLink:'', urgent:false, attachments:[], comeBackDate:'' });
 
   useEffect(() => { loadTasksFromStorage(); }, []);
+  useEffect(() => { loadTravelFromSheets(); }, []);
+  useEffect(() => { loadTravelPrefsFromSheets(); }, []);
   useEffect(() => {
     // Auto-save every 10 min (was 5). The save guard already protects against empty writes.
     const t = setInterval(() => { if (tasksRef.current && tasksRef.current.length > 0) saveTasksToStorage(tasksRef.current); }, 10*60*1000);
@@ -546,18 +583,19 @@ const DailyTaskTracker = ({ onLogout }) => {
   const isOpenable = (val) => { let l=safeString(val).trim(); if (!l) return false; if (l.startsWith('<')&&l.endsWith('>')) l=l.slice(1,-1); return l.startsWith('http')||l.includes('@'); };
 
   // Travel helpers
+  const blankTravelForm = { type:'Flight', description:'', startDate:'', endDate:'', location:'', confirmation:'', seat:'', url:'', agenda:'', tags:[] };
   const addTravelEntry = () => {
     if (!travelForm.description||!travelForm.startDate) { alert('Please enter description and start date'); return; }
     saveTravelEntries([...travelEntries,{id:Date.now(),...travelForm}].sort((a,b)=>new Date(a.startDate)-new Date(b.startDate)));
-    setTravelForm({type:'Flight',description:'',startDate:'',endDate:'',location:'',confirmation:'',url:'',tags:[]});
+    setTravelForm(blankTravelForm);
   };
   const deleteTravelEntry = (id) => { if (window.confirm('Delete this travel entry?')) saveTravelEntries(travelEntries.filter(e=>e.id!==id)); };
-  const startEditTravel = (e) => { setEditingTravelId(e.id); setTravelForm({type:e.type||'Flight',description:e.description||'',startDate:e.startDate||'',endDate:e.endDate||'',location:e.location||'',confirmation:e.confirmation||'',url:e.url||'',tags:e.tags||[]}); };
-  const saveEditTravel = () => { saveTravelEntries(travelEntries.map(e=>e.id===editingTravelId?{...e,...travelForm}:e).sort((a,b)=>new Date(a.startDate)-new Date(b.startDate))); setEditingTravelId(null); setTravelForm({type:'Flight',description:'',startDate:'',endDate:'',location:'',confirmation:'',url:'',tags:[]}); };
-  const cancelEditTravel = () => { setEditingTravelId(null); setTravelForm({type:'Flight',description:'',startDate:'',endDate:'',location:'',confirmation:'',url:'',tags:[]}); };
+  const startEditTravel = (e) => { setEditingTravelId(e.id); setExpandedTravelId(null); setTravelForm({type:e.type||'Flight',description:e.description||'',startDate:e.startDate||'',endDate:e.endDate||'',location:e.location||'',confirmation:e.confirmation||'',seat:e.seat||'',url:e.url||'',agenda:e.agenda||'',tags:e.tags||[]}); };
+  const saveEditTravel = () => { saveTravelEntries(travelEntries.map(e=>e.id===editingTravelId?{...e,...travelForm}:e).sort((a,b)=>new Date(a.startDate)-new Date(b.startDate))); setEditingTravelId(null); setTravelForm(blankTravelForm); };
+  const cancelEditTravel = () => { setEditingTravelId(null); setTravelForm(blankTravelForm); };
 
-  // Conference card editing — these edit directly within travelEntries
-  const startEditConference = (e) => { setEditingConferenceId(e.id); setConfForm({description:e.description||'',startDate:e.startDate||'',endDate:e.endDate||'',location:e.location||'',confirmation:e.confirmation||'',url:e.url||'',tags:e.tags||['Conference']}); };
+  // Conference card editing
+  const startEditConference = (e) => { setEditingConferenceId(e.id); setConfForm({description:e.description||'',startDate:e.startDate||'',endDate:e.endDate||'',location:e.location||'',confirmation:e.confirmation||'',seat:e.seat||'',url:e.url||'',agenda:e.agenda||'',tags:e.tags||['Conference']}); };
   const saveEditConference = () => { saveTravelEntries(travelEntries.map(e=>e.id===editingConferenceId?{...e,...confForm}:e).sort((a,b)=>new Date(a.startDate)-new Date(b.startDate))); setEditingConferenceId(null); };
   const cancelEditConference = () => setEditingConferenceId(null);
 
@@ -806,7 +844,7 @@ const DailyTaskTracker = ({ onLogout }) => {
         <div className={`rounded-2xl shadow-2xl p-6 mb-6 ${darkMode?'bg-gray-800 text-white':'bg-white'}`}>
           <div className="flex justify-between items-center flex-wrap gap-4">
             <div>
-              <h1 className={`text-3xl font-serif font-bold mb-2 ${darkMode?'text-white':'text-indigo-900'}`}>Dr. K Workflow <span className="text-xs font-normal text-gray-400 align-middle">v2.9</span></h1>
+              <h1 className={`text-3xl font-serif font-bold mb-2 ${darkMode?'text-white':'text-indigo-900'}`}>Dr. K Workflow <span className="text-xs font-normal text-gray-400 align-middle">v3.2</span></h1>
               <p className={darkMode?'text-gray-300':'text-gray-600'}>{new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}</p>
               <div className={`mt-3 p-3 rounded-lg border-l-4 ${darkMode?'bg-gray-700 border-purple-400':'bg-purple-50 border-purple-500'}`}>
                 <p className={`text-sm italic ${darkMode?'text-gray-300':'text-gray-700'}`}>"{dailyQuote.quote}"</p>
@@ -1218,189 +1256,331 @@ const DailyTaskTracker = ({ onLogout }) => {
         )}
 
         {/* ── TRAVEL TAB ── */}
-        {activeSection==='travel' && (
+        {activeSection==='travel' && (()=>{
+          const fmtD = (d) => d ? new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—';
+          const fmtDLong = (d) => d ? new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}) : '—';
+          const today = new Date(); today.setHours(0,0,0,0);
+          const icons = {'Flight':'✈️','Hotel':'🏨','Car':'🚗','Event':'📅','Conference':'🎤','Course':'📚'};
+          const tagColors = {'Flight':'bg-blue-100 text-blue-800','Hotel':'bg-purple-100 text-purple-800','Car':'bg-yellow-100 text-yellow-800','Event':'bg-pink-100 text-pink-800','Conference':'bg-green-100 text-green-800','Course':'bg-teal-100 text-teal-800'};
+
+          return (
           <div className={`rounded-2xl shadow-2xl p-6 ${darkMode?'bg-gray-800':'bg-white'}`}>
             <h2 className={`text-2xl font-serif font-bold mb-6 pb-4 border-b-2 ${darkMode?'text-white border-gray-600':'text-indigo-900 border-gray-200'}`}>✈️ Travel</h2>
 
             {/* ── UPCOMING ALERT ── */}
-            {getUpcomingTravel().length>0 && <div className="mb-6 p-4 bg-cyan-50 border-l-4 border-cyan-500 rounded-r-lg"><h3 className="font-bold text-cyan-900 mb-2">🔔 Upcoming</h3>{getUpcomingTravel().map(t=><div key={t.id} className="text-sm text-cyan-800"><strong>{t.description}</strong> — {t.daysUntil===0?'Today!':t.daysUntil===1?'Tomorrow':`${t.daysUntil} days`}</div>)}</div>}
-
-            {/* ── CONFERENCE SECTION ── */}
-            <div className="mb-8">
-              <h3 className={`text-xl font-bold mb-4 flex items-center gap-2 ${darkMode?'text-white':'text-indigo-900'}`}>
-                🎤 Conference Information
-              </h3>
-              <div className={`rounded-xl border-2 border-indigo-200 ${darkMode?'bg-gray-700':'bg-indigo-50'} p-5`}>
-                {(() => {
-                  const today = new Date(); today.setHours(0,0,0,0);
-                  const confEntries = travelEntries
-                    .filter(e => e.tags?.some(t => ['Conference','Event','Course'].includes(t)))
-                    .sort((a,b) => new Date(a.startDate)-new Date(b.startDate));
-                  const upcoming = confEntries.filter(e => new Date(e.endDate||e.startDate) >= today);
-                  const past = confEntries.filter(e => new Date(e.endDate||e.startDate) < today);
-                  const fmtDate = (d) => d ? new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}) : '—';
-                  return (
-                    <div className="space-y-3">
-                      {upcoming.length === 0 && <p className="text-gray-500 text-sm italic">No upcoming conferences or events.</p>}
-                      {upcoming.map(e => (
-                        <div key={e.id}>
-                          {editingConferenceId === e.id ? (
-                            /* ── INLINE EDIT FORM ── */
-                            <div className={`p-4 rounded-lg border-2 border-indigo-400 ${darkMode?'bg-gray-600':'bg-white'} space-y-3`}>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                <div className="md:col-span-2">
-                                  <label className="text-xs font-semibold text-gray-500 block mb-1">Description</label>
-                                  <input type="text" value={confForm.description} onChange={e=>setConfForm({...confForm,description:e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm"/>
-                                </div>
-                                <div>
-                                  <label className="text-xs font-semibold text-gray-500 block mb-1">Start Date</label>
-                                  <input type="date" value={confForm.startDate} onChange={e=>setConfForm({...confForm,startDate:e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm"/>
-                                </div>
-                                <div>
-                                  <label className="text-xs font-semibold text-gray-500 block mb-1">End Date</label>
-                                  <input type="date" value={confForm.endDate} onChange={e=>setConfForm({...confForm,endDate:e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm"/>
-                                </div>
-                                <div>
-                                  <label className="text-xs font-semibold text-gray-500 block mb-1">Location</label>
-                                  <input type="text" value={confForm.location} onChange={e=>setConfForm({...confForm,location:e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm"/>
-                                </div>
-                                <div>
-                                  <label className="text-xs font-semibold text-gray-500 block mb-1">Confirmation #</label>
-                                  <input type="text" value={confForm.confirmation} onChange={e=>setConfForm({...confForm,confirmation:e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm"/>
-                                </div>
-                                <div className="md:col-span-2">
-                                  <label className="text-xs font-semibold text-gray-500 block mb-1">URL (makes description a link)</label>
-                                  <input type="url" value={confForm.url} onChange={e=>setConfForm({...confForm,url:e.target.value})} placeholder="https://..." className="w-full px-3 py-2 border rounded-lg text-sm"/>
-                                </div>
-                              </div>
-                              <div className="flex gap-2">
-                                <button onClick={saveEditConference} className="flex-1 py-2 bg-green-500 text-white rounded-lg text-sm font-semibold">✓ Save</button>
-                                <button onClick={cancelEditConference} className="flex-1 py-2 bg-gray-400 text-white rounded-lg text-sm">Cancel</button>
-                              </div>
-                            </div>
-                          ) : (
-                            /* ── DISPLAY CARD ── */
-                            <div className={`flex items-start gap-3 p-3 rounded-lg border group ${darkMode?'bg-gray-600 border-gray-500':'bg-white border-indigo-200'}`}>
-                              <span className="text-2xl mt-0.5">{e.tags?.includes('Conference')?'🎤':e.tags?.includes('Course')?'📚':'📅'}</span>
-                              <div className="flex-1 min-w-0">
-                                <div className="font-semibold text-sm">
-                                  {e.url ? <a href={e.url} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">{e.description}</a> : e.description}
-                                </div>
-                                <div className="text-xs text-gray-500 mt-0.5">{fmtDate(e.startDate)}{e.endDate&&e.endDate!==e.startDate?` – ${fmtDate(e.endDate)}`:''} · {e.location}</div>
-                                {e.confirmation && <div className="text-xs text-gray-400 font-mono mt-0.5">Conf# {e.confirmation}</div>}
-                              </div>
-                              {(() => { const days=Math.ceil((new Date(e.startDate)-today)/(1000*60*60*24)); return days>=0&&days<=30?<span className={`text-xs px-2 py-1 rounded-full font-semibold whitespace-nowrap self-start mt-1 ${days===0?'bg-green-100 text-green-700':days<=7?'bg-amber-100 text-amber-700':'bg-blue-100 text-blue-700'}`}>{days===0?'Today':days===1?'Tomorrow':`${days}d away`}</span>:null; })()}
-                              <button onClick={()=>startEditConference(e)} className="opacity-0 group-hover:opacity-100 transition-opacity ml-1 text-gray-400 hover:text-indigo-600 text-sm px-2 py-1 rounded" title="Edit">✏️</button>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                      {past.length > 0 && (
-                        <details className="mt-2">
-                          <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-600">Show {past.length} past event{past.length>1?'s':''}</summary>
-                          <div className="mt-2 space-y-2">
-                            {past.map(e=>(
-                              <div key={e.id} className="flex items-start gap-3 p-2 rounded-lg bg-gray-50 border border-gray-200 opacity-60 group">
-                                <span className="text-lg mt-0.5">{e.tags?.includes('Conference')?'🎤':e.tags?.includes('Course')?'📚':'📅'}</span>
-                                <div className="flex-1 min-w-0">
-                                  <div className="font-medium text-sm text-gray-500">{e.description}</div>
-                                  <div className="text-xs text-gray-400">{fmtDate(e.startDate)}{e.endDate&&e.endDate!==e.startDate?` – ${fmtDate(e.endDate)}`:''} · {e.location}</div>
-                                </div>
-                                <button onClick={()=>startEditConference(e)} className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-indigo-600 text-sm px-2 py-1 rounded" title="Edit">✏️</button>
-                              </div>
-                            ))}
-                          </div>
-                        </details>
-                      )}
-                    </div>
-                  );
-                })()}
-
-                {/* Conference agenda box */}
-                <div className="mt-4 pt-4 border-t border-indigo-200">
-                  <label className={`block text-sm font-semibold mb-2 ${darkMode?'text-gray-200':'text-indigo-800'}`}>📋 Upcoming Conference Agenda / Notes</label>
-                  <textarea
-                    value={conferenceAgenda}
-                    onChange={e=>saveConferenceAgenda(e.target.value)}
-                    placeholder="Paste agenda, session schedule, speaker info, notes..."
-                    rows={6}
-                    className={`w-full px-4 py-3 rounded-lg border text-sm resize-y ${darkMode?'bg-gray-800 border-gray-600 text-white':'bg-white border-indigo-200 text-gray-800'} focus:outline-none focus:border-indigo-400`}
-                  />
-                </div>
+            {getUpcomingTravel().length>0 && (
+              <div className="mb-6 p-4 bg-cyan-50 border-l-4 border-cyan-500 rounded-r-lg">
+                <h3 className="font-bold text-cyan-900 mb-2">🔔 Upcoming (next 14 days)</h3>
+                {getUpcomingTravel().map(t=>(
+                  <div key={t.id} className="text-sm text-cyan-800">
+                    <strong>{icons[t.tags?.[0]]||'📋'} {t.description}</strong>
+                    {t.seat && <span className="ml-2 text-cyan-600 text-xs">· Seat {t.seat}</span>}
+                    <span className="ml-2 text-cyan-500">— {t.daysUntil===0?'Today!':t.daysUntil===1?'Tomorrow':`${t.daysUntil} days`}</span>
+                  </div>
+                ))}
               </div>
-            </div>
+            )}
 
-            {/* ── TRAVEL TABLE ── */}
-            <div className="mb-4 flex gap-3 flex-wrap">
-              <input type="text" placeholder="🔍 Search..." value={travelSearchQuery} onChange={(e)=>setTravelSearchQuery(e.target.value)} className="flex-1 px-4 py-2 rounded-lg border min-w-48"/>
-              {['all',...travelTags].map(tag=><button key={tag} onClick={()=>setTravelTagFilter(tag)} className={`px-3 py-2 rounded-lg text-sm ${travelTagFilter===tag?'bg-cyan-500 text-white':'bg-gray-100'}`}>{tag==='all'?'All':tag}</button>)}
-            </div>
-            <div className="overflow-x-auto mb-6">
-              <table className="w-full">
-                <thead><tr className="bg-blue-600 text-white"><th className="px-4 py-3 text-left text-sm">Type</th><th className="px-4 py-3 text-left text-sm">Description</th><th className="px-4 py-3 text-left text-sm">Start</th><th className="px-4 py-3 text-left text-sm">End</th><th className="px-4 py-3 text-left text-sm">Location</th><th className="px-4 py-3 text-left text-sm">Conf#</th><th className="px-4 py-3 text-sm">Actions</th></tr></thead>
-                <tbody>{(()=>{
-                  const fmtD = (d) => d ? new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—';
-                  const today = new Date(); today.setHours(0,0,0,0);
-                  let f=travelEntries;
-                  if(travelTagFilter!=='all') f=f.filter(e=>e.tags?.includes(travelTagFilter));
-                  if(travelSearchQuery.trim()){const q=travelSearchQuery.toLowerCase();f=f.filter(e=>(e.description||'').toLowerCase().includes(q)||(e.location||'').toLowerCase().includes(q));}
-                  if(!f.length) return <tr><td colSpan="7" className="py-12 text-center text-gray-500">No entries</td></tr>;
-                  const icons={'Flight':'✈️','Hotel':'🏨','Car':'🚗','Event':'📅','Conference':'🎤','Course':'📚'};
-                  const colors={'Flight':'bg-blue-100 text-blue-800','Hotel':'bg-purple-100 text-purple-800','Car':'bg-yellow-100 text-yellow-800','Event':'bg-pink-100 text-pink-800','Conference':'bg-green-100 text-green-800','Course':'bg-teal-100 text-teal-800'};
-                  return f.map(e => {
-                    const isPast = new Date(e.endDate||e.startDate+'T23:59:59') < today;
-                    return (
-                      <tr key={e.id} className={`border-b transition-colors ${isPast?'opacity-50 bg-gray-50':new Date(e.startDate)>=today?'bg-yellow-50 hover:bg-yellow-100':'hover:bg-gray-50'}`}>
-                        <td className="px-4 py-3 text-sm"><span className={`px-2 py-1 rounded text-xs font-semibold ${colors[e.tags?.[0]]||'bg-gray-100'}`}>{icons[e.tags?.[0]]||'📋'} {e.tags?.[0]||e.type}</span></td>
-                        <td className="px-4 py-3 text-sm">
-                          {e.url
-                            ? <a href={e.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline font-medium">{e.description} 🔗</a>
-                            : <span>{e.description}</span>
-                          }
-                        </td>
-                        <td className="px-4 py-3 text-sm whitespace-nowrap">{fmtD(e.startDate)}</td>
-                        <td className="px-4 py-3 text-sm whitespace-nowrap">{fmtD(e.endDate)}</td>
-                        <td className="px-4 py-3 text-sm">{e.location}</td>
-                        <td className="px-4 py-3 text-sm font-mono text-xs">{e.confirmation}</td>
-                        <td className="px-4 py-3 text-center whitespace-nowrap">
-                          <button onClick={()=>startEditTravel(e)} className="text-blue-600 mr-2 hover:text-blue-800">✏️</button>
-                          <button onClick={()=>deleteTravelEntry(e.id)} className="text-red-600 hover:text-red-800 text-lg leading-none">×</button>
-                        </td>
-                      </tr>
-                    );
-                  });
-                })()}</tbody>
-              </table>
-            </div>
-
-            {/* ── ADD / EDIT FORM ── */}
-            <div className="mt-8 pt-6 border-t-2">
-              <h3 className={`text-xl font-bold mb-4 ${darkMode?'text-white':'text-indigo-900'}`}>{editingTravelId?'✏️ Edit':'➕ Add'} Travel</h3>
-              <div className="bg-blue-50 rounded-xl p-5 space-y-3">
-                <div className="flex flex-wrap gap-2">{travelTags.map(tag=>{const icons={'Flight':'✈️','Hotel':'🏨','Car':'🚗','Event':'📅','Conference':'🎤','Course':'📚'};return <button key={tag} onClick={()=>setTravelForm({...travelForm,tags:travelForm.tags.includes(tag)?travelForm.tags.filter(t=>t!==tag):[...travelForm.tags,tag]})} className={`px-3 py-1.5 rounded-lg text-sm font-semibold ${travelForm.tags.includes(tag)?'bg-cyan-500 text-white':'bg-gray-200'}`}>{icons[tag]} {tag}</button>;})}</div>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  <input type="text" value={travelForm.description} onChange={(e)=>setTravelForm({...travelForm,description:e.target.value})} placeholder="Description" className="px-3 py-2 border rounded-lg text-sm"/>
-                  <input type="date" value={travelForm.startDate} onChange={(e)=>setTravelForm({...travelForm,startDate:e.target.value})} className="px-3 py-2 border rounded-lg text-sm"/>
-                  <input type="date" value={travelForm.endDate} onChange={(e)=>setTravelForm({...travelForm,endDate:e.target.value})} className="px-3 py-2 border rounded-lg text-sm"/>
-                  <input type="text" value={travelForm.location} onChange={(e)=>setTravelForm({...travelForm,location:e.target.value})} placeholder="Location" className="px-3 py-2 border rounded-lg text-sm"/>
-                  <input type="text" value={travelForm.confirmation} onChange={(e)=>setTravelForm({...travelForm,confirmation:e.target.value})} placeholder="Confirmation #" className="px-3 py-2 border rounded-lg text-sm"/>
-                  <input type="url" value={travelForm.url} onChange={(e)=>setTravelForm({...travelForm,url:e.target.value})} placeholder="URL (optional — makes description a link)" className="px-3 py-2 border rounded-lg text-sm"/>
+            {/* ══════════════════════════════════════════
+                SECTION 0: TRAVEL PREFERENCES
+            ══════════════════════════════════════════ */}
+            <div className="mb-10">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className={`text-xl font-bold ${darkMode?'text-white':'text-indigo-900'}`}>🎯 Dr. K Travel Preferences</h3>
+                {!editingPrefs
+                  ? <button onClick={()=>{setPrefsForm({...travelPrefs});setEditingPrefs(true);}} className="text-xs border border-gray-200 hover:border-indigo-300 text-gray-400 hover:text-indigo-600 px-3 py-1.5 rounded-lg transition-colors">✏️ Edit Preferences</button>
+                  : <div className="flex gap-2">
+                      <button onClick={()=>{saveTravelPrefs(prefsForm);setEditingPrefs(false);}} className="text-xs bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg font-semibold">✓ Save</button>
+                      <button onClick={()=>setEditingPrefs(false)} className="text-xs bg-gray-200 hover:bg-gray-300 text-gray-600 px-3 py-1.5 rounded-lg">Cancel</button>
+                    </div>
+                }
+              </div>
+              {editingPrefs ? (
+                <div className={`rounded-xl border-2 border-indigo-300 ${darkMode?'bg-gray-700':'bg-indigo-50'} p-5 space-y-4`}>
+                  {[
+                    {key:'flights', label:'✈️ Flight Preferences', placeholder:'e.g. Always aisle, Delta preferred, Comfort+ or First when available, no middle seats...'},
+                    {key:'hotels', label:'🏨 Hotel Preferences', placeholder:'e.g. King bed, high floor, away from elevator, Hilton/Marriott preferred, late checkout...'},
+                    {key:'dining', label:'🍽 Dining Preferences', placeholder:'e.g. Dietary restrictions, favorite cuisines, allergies...'},
+                    {key:'ground', label:'🚗 Ground Transportation', placeholder:'e.g. Prefers Uber Black, rental car class, no shared rides...'},
+                    {key:'other', label:'📋 Other Notes', placeholder:'e.g. TSA PreCheck, Global Entry, passport info, any other travel notes...'},
+                  ].map(({key,label,placeholder})=>(
+                    <div key={key}>
+                      <label className="text-xs font-bold text-indigo-700 uppercase tracking-wide block mb-1">{label}</label>
+                      <textarea
+                        value={prefsForm[key]}
+                        onChange={e=>setPrefsForm({...prefsForm,[key]:e.target.value})}
+                        placeholder={placeholder}
+                        rows={3}
+                        className={`w-full px-3 py-2 border rounded-lg text-sm resize-y ${darkMode?'bg-gray-800 border-gray-600 text-white':'bg-white border-indigo-200'}`}
+                      />
+                    </div>
+                  ))}
                 </div>
-                {editingTravelId ? <div className="flex gap-3"><button onClick={saveEditTravel} className="flex-1 py-2 bg-green-500 text-white rounded-lg">✓ Save</button><button onClick={cancelEditTravel} className="flex-1 py-2 bg-gray-400 text-white rounded-lg">Cancel</button></div>
-                 : <button onClick={addTravelEntry} className="w-full py-2 bg-blue-500 text-white rounded-lg">➕ Add Entry</button>}
+              ) : (
+                <div className={`rounded-xl border ${darkMode?'bg-gray-700 border-gray-600':'bg-gray-50 border-gray-200'} overflow-hidden`}>
+                  {[
+                    {key:'flights', label:'✈️ Flights'},
+                    {key:'hotels', label:'🏨 Hotels'},
+                    {key:'dining', label:'🍽 Dining'},
+                    {key:'ground', label:'🚗 Ground'},
+                    {key:'other', label:'📋 Other'},
+                  ].map(({key,label},i)=>{
+                    const val = travelPrefs[key];
+                    return (
+                      <div key={key} className={`flex gap-4 px-5 py-3 ${i>0?'border-t border-gray-100':''}`}>
+                        <span className={`text-xs font-bold uppercase tracking-wide w-16 shrink-0 mt-0.5 ${darkMode?'text-gray-400':'text-gray-400'}`}>{label}</span>
+                        <span className={`text-sm ${val ? (darkMode?'text-gray-200':'text-gray-700') : 'text-gray-300 italic'}`}>
+                          {val || 'Not set — click Edit Preferences to add'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* ══════════════════════════════════════════
+                SECTION 1: CONFERENCE INFORMATION
+            ══════════════════════════════════════════ */}
+            <div className="mb-10">
+              <h3 className={`text-xl font-bold mb-4 ${darkMode?'text-white':'text-indigo-900'}`}>🎤 Conference & Event Information</h3>
+              {(()=>{
+                const confEntries = travelEntries.filter(e=>e.tags?.some(t=>['Conference','Event','Course'].includes(t))).sort((a,b)=>new Date(a.startDate)-new Date(b.startDate));
+                const upcoming = confEntries.filter(e=>new Date(e.endDate||e.startDate)>=today);
+                const past = confEntries.filter(e=>new Date(e.endDate||e.startDate)<today);
+                return (
+                  <div className="space-y-4">
+                    {upcoming.length===0 && <p className="text-gray-400 text-sm italic">No upcoming events.</p>}
+                    {upcoming.map(e=>(
+                      <div key={e.id} className={`rounded-xl border-2 ${editingConferenceId===e.id?'border-indigo-400':'border-indigo-100'} ${darkMode?'bg-gray-700':'bg-white'} overflow-hidden shadow-sm`}>
+                        {editingConferenceId===e.id ? (
+                          /* ── EDIT MODE ── */
+                          <div className="p-5 space-y-4">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-sm font-bold text-indigo-600 uppercase tracking-wide">Editing Event</span>
+                              <button onClick={cancelEditConference} className="text-gray-400 hover:text-gray-600 text-lg">×</button>
+                            </div>
+                            <div>
+                              <label className="text-xs font-semibold text-gray-500 block mb-1">Event Title</label>
+                              <input type="text" value={confForm.description} onChange={ev=>setConfForm({...confForm,description:ev.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm"/>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div><label className="text-xs font-semibold text-gray-500 block mb-1">Start Date</label><input type="date" value={confForm.startDate} onChange={ev=>setConfForm({...confForm,startDate:ev.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm"/></div>
+                              <div><label className="text-xs font-semibold text-gray-500 block mb-1">End Date</label><input type="date" value={confForm.endDate} onChange={ev=>setConfForm({...confForm,endDate:ev.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm"/></div>
+                              <div><label className="text-xs font-semibold text-gray-500 block mb-1">Location / Venue</label><input type="text" value={confForm.location} onChange={ev=>setConfForm({...confForm,location:ev.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm"/></div>
+                              <div><label className="text-xs font-semibold text-gray-500 block mb-1">Confirmation #</label><input type="text" value={confForm.confirmation} onChange={ev=>setConfForm({...confForm,confirmation:ev.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm"/></div>
+                            </div>
+                            <div><label className="text-xs font-semibold text-gray-500 block mb-1">Website / Registration URL</label><input type="url" value={confForm.url} onChange={ev=>setConfForm({...confForm,url:ev.target.value})} placeholder="https://..." className="w-full px-3 py-2 border rounded-lg text-sm"/></div>
+                            <div>
+                              <label className="text-xs font-semibold text-gray-500 block mb-1">Agenda / Notes</label>
+                              <textarea value={confForm.agenda} onChange={ev=>setConfForm({...confForm,agenda:ev.target.value})} placeholder="Paste full agenda, schedule, speaker info, session times..." rows={8} className="w-full px-3 py-2 border rounded-lg text-sm resize-y font-mono"/>
+                            </div>
+                            <div className="flex gap-2">
+                              <button onClick={saveEditConference} className="flex-1 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700">✓ Save Changes</button>
+                              <button onClick={cancelEditConference} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300">Cancel</button>
+                            </div>
+                          </div>
+                        ) : (
+                          /* ── VIEW MODE ── */
+                          <div>
+                            {/* Header bar */}
+                            <div className="flex items-start justify-between px-5 pt-4 pb-3">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-xl">{e.tags?.includes('Conference')?'🎤':e.tags?.includes('Course')?'📚':'📅'}</span>
+                                  <h4 className="font-bold text-base text-gray-900">
+                                    {e.url?<a href={e.url} target="_blank" rel="noopener noreferrer" className="text-indigo-700 hover:underline">{e.description} 🔗</a>:e.description}
+                                  </h4>
+                                  {(()=>{const days=Math.ceil((new Date(e.startDate)-today)/(1000*60*60*24));return days>=0&&days<=60?<span className={`text-xs px-2 py-0.5 rounded-full font-semibold whitespace-nowrap ${days===0?'bg-green-100 text-green-700':days<=7?'bg-amber-100 text-amber-700':'bg-blue-100 text-blue-700'}`}>{days===0?'Today':days===1?'Tomorrow':`${days}d away`}</span>:null;})()}
+                                </div>
+                                <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-sm text-gray-500">
+                                  <span>📅 {fmtDLong(e.startDate)}{e.endDate&&e.endDate!==e.startDate?` – ${fmtDLong(e.endDate)}`:''}</span>
+                                  {e.location && <span>📍 {e.location}</span>}
+                                  {e.confirmation && <span className="font-mono text-xs">Conf# {e.confirmation}</span>}
+                                </div>
+                              </div>
+                              <button onClick={()=>startEditConference(e)} className="ml-3 shrink-0 text-xs text-gray-400 hover:text-indigo-600 border border-gray-200 hover:border-indigo-300 px-2 py-1 rounded-lg transition-colors">✏️ Edit</button>
+                            </div>
+                            {/* Agenda panel */}
+                            {e.agenda ? (
+                              <div className="mx-4 mb-4 bg-gray-50 rounded-lg border border-gray-200 p-4">
+                                <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Agenda</div>
+                                <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans leading-relaxed">{e.agenda}</pre>
+                              </div>
+                            ) : (
+                              <div className="mx-4 mb-4 px-4 py-3 bg-gray-50 rounded-lg border border-dashed border-gray-200 text-xs text-gray-400 text-center cursor-pointer hover:border-indigo-300 hover:text-indigo-500 transition-colors" onClick={()=>startEditConference(e)}>
+                                + Add agenda / notes
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {past.length>0 && (
+                      <details className="mt-2">
+                        <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-600 select-none">▸ Show {past.length} past event{past.length>1?'s':''}</summary>
+                        <div className="mt-2 space-y-2 opacity-50">
+                          {past.map(e=>(
+                            <div key={e.id} className="flex items-center gap-3 px-4 py-3 rounded-lg bg-gray-50 border border-gray-200">
+                              <span>{e.tags?.includes('Conference')?'🎤':e.tags?.includes('Course')?'📚':'📅'}</span>
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium text-sm text-gray-600 truncate">{e.description}</div>
+                                <div className="text-xs text-gray-400">{fmtDLong(e.startDate)}{e.endDate&&e.endDate!==e.startDate?` – ${fmtDLong(e.endDate)}`:''} · {e.location}</div>
+                              </div>
+                              <button onClick={()=>startEditConference(e)} className="text-xs text-gray-400 hover:text-indigo-500 border border-gray-200 px-2 py-1 rounded">✏️</button>
+                            </div>
+                          ))}
+                        </div>
+                      </details>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* ══════════════════════════════════════════
+                SECTION 2: ALL TRAVEL ENTRIES (CARDS)
+            ══════════════════════════════════════════ */}
+            <div className="mb-10">
+              <h3 className={`text-xl font-bold mb-4 ${darkMode?'text-white':'text-indigo-900'}`}>🗂 All Travel</h3>
+
+              {/* Filters */}
+              <div className="mb-4 flex gap-2 flex-wrap items-center">
+                <input type="text" placeholder="🔍 Search..." value={travelSearchQuery} onChange={(e)=>setTravelSearchQuery(e.target.value)} className="flex-1 px-3 py-2 rounded-lg border text-sm min-w-40"/>
+                {['all',...travelTags].map(tag=><button key={tag} onClick={()=>setTravelTagFilter(tag)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${travelTagFilter===tag?'bg-cyan-500 text-white':'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>{tag==='all'?'All':`${icons[tag]||''} ${tag}`}</button>)}
+              </div>
+
+              {/* Table */}
+              <div className="overflow-x-auto rounded-xl border border-gray-200">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className={`${darkMode?'bg-gray-700 text-gray-200':'bg-gray-50 text-gray-600'} text-xs font-semibold uppercase tracking-wide`}>
+                      <th className="px-4 py-3 text-left">Type</th>
+                      <th className="px-4 py-3 text-left">Description</th>
+                      <th className="px-4 py-3 text-left">Dates</th>
+                      <th className="px-4 py-3 text-left">Location</th>
+                      <th className="px-4 py-3 text-left">Seat / Room</th>
+                      <th className="px-4 py-3 text-left">Conf #</th>
+                      <th className="px-4 py-3 text-center">Notes</th>
+                      <th className="px-4 py-3 text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(()=>{
+                      let f = travelEntries;
+                      if(travelTagFilter!=='all') f=f.filter(e=>e.tags?.includes(travelTagFilter));
+                      if(travelSearchQuery.trim()){const q=travelSearchQuery.toLowerCase();f=f.filter(e=>(e.description||'').toLowerCase().includes(q)||(e.location||'').toLowerCase().includes(q)||(e.agenda||'').toLowerCase().includes(q));}
+                      if(!f.length) return <tr><td colSpan="8" className="py-12 text-center text-gray-400">No entries found</td></tr>;
+                      return f.map((e,i)=>{
+                        const isPast = new Date(e.endDate||e.startDate+'T23:59:59') < today;
+                        const isExpanded = expandedTravelId === e.id;
+                        const isEditing = editingTravelId === e.id;
+                        const rowBg = isPast ? (darkMode?'bg-gray-900':'bg-gray-50') : i%2===0 ? (darkMode?'bg-gray-800':'bg-white') : (darkMode?'bg-gray-750':'bg-gray-50/50');
+                        return (
+                          <React.Fragment key={e.id}>
+                            <tr className={`border-t border-gray-100 ${rowBg} ${isPast?'opacity-50':''} hover:bg-blue-50/30 transition-colors`}>
+                              <td className="px-4 py-3">
+                                <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold ${tagColors[e.tags?.[0]]||'bg-gray-100 text-gray-700'}`}>
+                                  {icons[e.tags?.[0]]||'📋'} {e.tags?.[0]||e.type}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 font-medium max-w-48">
+                                {e.url
+                                  ? <a href={e.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{e.description} 🔗</a>
+                                  : e.description
+                                }
+                              </td>
+                              <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
+                                <div>{fmtD(e.startDate)}</div>
+                                {e.endDate&&e.endDate!==e.startDate&&<div className="text-gray-400">→ {fmtD(e.endDate)}</div>}
+                              </td>
+                              <td className="px-4 py-3 text-xs text-gray-600 max-w-36">{e.location||'—'}</td>
+                              <td className="px-4 py-3 text-xs font-mono text-gray-700">{e.seat||<span className="text-gray-300">—</span>}</td>
+                              <td className="px-4 py-3 text-xs font-mono text-gray-600">{e.confirmation||<span className="text-gray-300">—</span>}</td>
+                              <td className="px-4 py-3 text-center">
+                                {e.agenda
+                                  ? <button onClick={()=>setExpandedTravelId(isExpanded?null:e.id)} className={`text-xs px-2 py-1 rounded-full ${isExpanded?'bg-indigo-100 text-indigo-700':'bg-gray-100 text-gray-500 hover:bg-indigo-50 hover:text-indigo-600'}`}>{isExpanded?'▲ Hide':'▼ Notes'}</button>
+                                  : <span className="text-gray-200 text-xs">—</span>
+                                }
+                              </td>
+                              <td className="px-4 py-3 text-center whitespace-nowrap">
+                                <button onClick={()=>startEditTravel(e)} className="text-blue-500 hover:text-blue-700 mr-2 text-sm">✏️</button>
+                                <button onClick={()=>deleteTravelEntry(e.id)} className="text-red-400 hover:text-red-600 text-base font-bold leading-none">×</button>
+                              </td>
+                            </tr>
+                            {/* Expanded agenda row */}
+                            {isExpanded && !isEditing && (
+                              <tr className="border-t border-indigo-100">
+                                <td colSpan="8" className="px-6 py-4 bg-indigo-50/40">
+                                  <div className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-2">Notes / Agenda</div>
+                                  <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans leading-relaxed">{e.agenda}</pre>
+                                </td>
+                              </tr>
+                            )}
+                            {/* Edit row */}
+                            {isEditing && (
+                              <tr className="border-t-2 border-blue-300">
+                                <td colSpan="8" className="px-5 py-5 bg-blue-50">
+                                  <div className="text-sm font-bold text-blue-700 mb-3">✏️ Editing: {e.description}</div>
+                                  <div className="flex flex-wrap gap-2 mb-3">
+                                    {travelTags.map(tag=><button key={tag} onClick={()=>setTravelForm({...travelForm,tags:travelForm.tags.includes(tag)?travelForm.tags.filter(t=>t!==tag):[...travelForm.tags,tag]})} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${travelForm.tags.includes(tag)?'bg-cyan-500 text-white':'bg-gray-200 text-gray-600'}`}>{icons[tag]} {tag}</button>)}
+                                  </div>
+                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                                    <div className="md:col-span-2"><label className="text-xs font-semibold text-gray-500 block mb-1">Description / Title</label><input type="text" value={travelForm.description} onChange={ev=>setTravelForm({...travelForm,description:ev.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm"/></div>
+                                    <div><label className="text-xs font-semibold text-gray-500 block mb-1">Start Date</label><input type="date" value={travelForm.startDate} onChange={ev=>setTravelForm({...travelForm,startDate:ev.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm"/></div>
+                                    <div><label className="text-xs font-semibold text-gray-500 block mb-1">End Date</label><input type="date" value={travelForm.endDate} onChange={ev=>setTravelForm({...travelForm,endDate:ev.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm"/></div>
+                                    <div className="md:col-span-2"><label className="text-xs font-semibold text-gray-500 block mb-1">Location / Venue</label><input type="text" value={travelForm.location} onChange={ev=>setTravelForm({...travelForm,location:ev.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm"/></div>
+                                    <div><label className="text-xs font-semibold text-gray-500 block mb-1">Seat / Room #</label><input type="text" value={travelForm.seat} onChange={ev=>setTravelForm({...travelForm,seat:ev.target.value})} placeholder="e.g. 8A, Room 412" className="w-full px-3 py-2 border rounded-lg text-sm"/></div>
+                                    <div><label className="text-xs font-semibold text-gray-500 block mb-1">Confirmation #</label><input type="text" value={travelForm.confirmation} onChange={ev=>setTravelForm({...travelForm,confirmation:ev.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm"/></div>
+                                    <div className="md:col-span-4"><label className="text-xs font-semibold text-gray-500 block mb-1">URL (makes title a link)</label><input type="url" value={travelForm.url} onChange={ev=>setTravelForm({...travelForm,url:ev.target.value})} placeholder="https://..." className="w-full px-3 py-2 border rounded-lg text-sm"/></div>
+                                  </div>
+                                  <div className="mb-3"><label className="text-xs font-semibold text-gray-500 block mb-1">Notes / Agenda / Flight Details</label><textarea value={travelForm.agenda} onChange={ev=>setTravelForm({...travelForm,agenda:ev.target.value})} placeholder="Flight number, depart time, hotel address, agenda, anything..." rows={5} className="w-full px-3 py-2 border rounded-lg text-sm resize-y font-mono"/></div>
+                                  <div className="flex gap-2">
+                                    <button onClick={saveEditTravel} className="px-6 py-2 bg-green-500 text-white rounded-lg text-sm font-semibold hover:bg-green-600">✓ Save</button>
+                                    <button onClick={cancelEditTravel} className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-400">Cancel</button>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        );
+                      });
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* ── ADD NEW ENTRY FORM ── */}
+              <div className={`mt-6 rounded-xl border-2 border-dashed border-gray-200 p-5 ${darkMode?'bg-gray-700':'bg-gray-50'}`}>
+                <h4 className={`text-base font-bold mb-4 ${darkMode?'text-white':'text-gray-700'}`}>➕ Add Travel Entry</h4>
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {travelTags.map(tag=><button key={tag} onClick={()=>setTravelForm({...travelForm,tags:travelForm.tags.includes(tag)?travelForm.tags.filter(t=>t!==tag):[...travelForm.tags,tag]})} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${travelForm.tags.includes(tag)?'bg-cyan-500 text-white':'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}>{icons[tag]} {tag}</button>)}
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                  <div className="md:col-span-2"><label className="text-xs font-semibold text-gray-500 block mb-1">Description / Title *</label><input type="text" value={travelForm.description} onChange={(e)=>setTravelForm({...travelForm,description:e.target.value})} placeholder="e.g. ATL to Phoenix, Marriott Downtown" className="w-full px-3 py-2 border rounded-lg text-sm"/></div>
+                  <div><label className="text-xs font-semibold text-gray-500 block mb-1">Start Date *</label><input type="date" value={travelForm.startDate} onChange={(e)=>setTravelForm({...travelForm,startDate:e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm"/></div>
+                  <div><label className="text-xs font-semibold text-gray-500 block mb-1">End Date</label><input type="date" value={travelForm.endDate} onChange={(e)=>setTravelForm({...travelForm,endDate:e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm"/></div>
+                  <div className="md:col-span-2"><label className="text-xs font-semibold text-gray-500 block mb-1">Location / Venue</label><input type="text" value={travelForm.location} onChange={(e)=>setTravelForm({...travelForm,location:e.target.value})} placeholder="City or address" className="w-full px-3 py-2 border rounded-lg text-sm"/></div>
+                  <div><label className="text-xs font-semibold text-gray-500 block mb-1">Seat / Room #</label><input type="text" value={travelForm.seat} onChange={(e)=>setTravelForm({...travelForm,seat:e.target.value})} placeholder="e.g. 8A" className="w-full px-3 py-2 border rounded-lg text-sm"/></div>
+                  <div><label className="text-xs font-semibold text-gray-500 block mb-1">Confirmation #</label><input type="text" value={travelForm.confirmation} onChange={(e)=>setTravelForm({...travelForm,confirmation:e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm"/></div>
+                  <div className="md:col-span-4"><label className="text-xs font-semibold text-gray-500 block mb-1">URL (makes title a link)</label><input type="url" value={travelForm.url} onChange={(e)=>setTravelForm({...travelForm,url:e.target.value})} placeholder="https://..." className="w-full px-3 py-2 border rounded-lg text-sm"/></div>
+                </div>
+                <div className="mb-4"><label className="text-xs font-semibold text-gray-500 block mb-1">Notes / Agenda / Flight Details</label><textarea value={travelForm.agenda} onChange={(e)=>setTravelForm({...travelForm,agenda:e.target.value})} placeholder="Flight number, depart time, seat class, hotel address, event agenda..." rows={4} className="w-full px-3 py-2 border rounded-lg text-sm resize-y font-mono"/></div>
+                <button onClick={addTravelEntry} className="w-full py-2.5 bg-blue-600 text-white rounded-lg font-semibold text-sm hover:bg-blue-700">➕ Add Entry</button>
               </div>
             </div>
 
             {/* ── CALENDAR ── */}
-            <div className="mt-8 pt-6 border-t-2"><Calendar year={calendarYear}/></div>
+            <div className="mb-10 pt-6 border-t-2 border-gray-100"><Calendar year={calendarYear}/></div>
 
             {/* ── FEDERAL HOLIDAYS ── */}
-            <div className="mt-8 pt-6 border-t-2">
+            <div className="pt-6 border-t-2 border-gray-100">
               <h3 className={`text-xl font-bold mb-4 ${darkMode?'text-white':'text-indigo-900'}`}>🇺🇸 2026 Federal Holidays</h3>
               <div className="bg-red-50 rounded-xl p-5"><div className="grid grid-cols-1 md:grid-cols-2 gap-3">{federalHolidays.map((h,i)=><div key={i} className="flex justify-between items-center p-2 bg-white rounded-lg border border-red-200"><span className="font-medium text-gray-800">{h.name}</span><span className="text-sm text-red-600 font-mono">{new Date(h.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span></div>)}</div></div>
             </div>
           </div>
-        )}
+          );
+        })()}
 
       </div>
     </div>
