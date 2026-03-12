@@ -399,22 +399,23 @@ const DailyTaskTracker = ({ onLogout }) => {
 
   const mergeTasks = (sheetsArr, localArr) => {
     const map = new Map();
-    // Index local tasks first
+    // Local is source of truth for what exists
     for (const t of localArr) {
       if (t && t.id) map.set(String(t.id), t);
     }
-    // Merge sheets tasks — newer updatedAt wins per id; unknown ids are added
+    // Only update existing local tasks if Sheets version is strictly newer
+    // Never resurrect tasks deleted locally
     for (const t of sheetsArr) {
       if (!t || !t.id) continue;
       const key = String(t.id);
       const existing = map.get(key);
       if (!existing) {
-        map.set(key, t); // task only in Sheets → keep it
+        continue; // deleted locally — do not restore from Sheets
       } else {
         const sheetsTs = t.updatedAt || 0;
         const localTs  = existing.updatedAt || 0;
-        if (sheetsTs >= localTs) map.set(key, t); // Sheets version is newer
-        // else keep local (it's newer)
+        if (sheetsTs > localTs) map.set(key, t); // Sheets strictly newer
+        // else keep local
       }
     }
     return removeDuplicateTasks([...map.values()].map(normalizeTask).filter(Boolean));
@@ -463,13 +464,11 @@ const DailyTaskTracker = ({ onLogout }) => {
           setTasks(merged);
           writeLocalBackup(merged);
 
-          // If merge produced more tasks than Sheets had, push the merged
-          // result back so the other user gets the full picture too
-          if (merged.length > sheetsTasks.length) {
+          // Always push merged result back to Sheets to keep deletions in sync
+          if (merged.length !== sheetsTasks.length) {
             fetch(SHEETS_API_URL, { method:'POST', redirect:'follow', body: JSON.stringify({ type:'tasks', tasks: merged }) })
               .then(() => setLastSaveTime(new Date().toLocaleTimeString()))
               .catch(() => {});
-            setSaveError(`Merged ${merged.length - sheetsTasks.length} local-only task(s) back to Sheets.`);
           }
         }
       } else {
@@ -945,6 +944,25 @@ const DailyTaskTracker = ({ onLogout }) => {
               <div className="p-4 bg-purple-50 border-l-4 border-purple-500 rounded-r-lg"><h3 className="font-bold text-purple-900">📓 My Notes</h3><p className="text-purple-800 mt-1 text-sm">Athena's private workspace. Not visible to Dr. K, not synced. Stays in your browser.</p></div>
               <div className="p-4 bg-amber-50 border-l-4 border-amber-500 rounded-r-lg"><h3 className="font-bold text-amber-900">📝 Task Descriptions</h3><p className="text-amber-800 mt-1 text-sm">Press Enter to add line breaks in task descriptions. Formatting is preserved when saved.</p></div>
               <div className="p-4 bg-gray-50 rounded-lg"><h3 className="font-bold mb-2 text-sm">Button Guide:</h3><div className="grid grid-cols-2 gap-2 text-sm"><span>✏️ Edit task</span><span>📅 Toggle Carried Over</span><span>⚡ Toggle urgent</span><span>○/✓ Complete</span><span>× Delete</span><span>↩️ Bring back now</span></div></div>
+              <div className="p-4 bg-teal-50 border-l-4 border-teal-500 rounded-r-lg">
+                <h3 className="font-bold text-teal-900">🔄 How to Refresh & Sync</h3>
+                <p className="text-teal-800 mt-1 text-sm font-semibold">After any app update is deployed:</p>
+                <ol className="text-teal-800 text-sm mt-2 space-y-1 list-decimal list-inside">
+                  <li><strong>Hard refresh</strong> the browser first — <code className="bg-teal-100 px-1 rounded">Cmd+Shift+R</code> (Mac) or <code className="bg-teal-100 px-1 rounded">Ctrl+Shift+R</code> (Windows)</li>
+                  <li>Then hit the <strong>🔄 Sync</strong> button to pull fresh data from Sheets</li>
+                </ol>
+                <p className="text-teal-700 text-xs mt-2">Hard refresh first — otherwise you're running old code even if the backend changed.</p>
+              </div>
+              <div className="p-4 bg-gray-50 border-l-4 border-gray-400 rounded-r-lg">
+                <h3 className="font-bold text-gray-800">📋 Version History</h3>
+                <div className="text-gray-700 text-sm mt-2 space-y-1">
+                  <p><strong>v3.2</strong> — Travel tab Google Sheets sync; Travel Preferences section</p>
+                  <p><strong>v3.1</strong> — Travel Preferences (flights, hotels, dining, ground, other)</p>
+                  <p><strong>v3.0</strong> — Full Travel tab rebuild; conference cards; seat field; per-entry agenda</p>
+                  <p><strong>v2.9</strong> — Multi-user merge sync; dual localStorage backup; auto-save</p>
+                  <p><strong>v2.4</strong> — New Hires tab; Contacts sync; Come Back tab; Recap overhaul</p>
+                </div>
+              </div>
               <div className="border-t-2 pt-4">
                 <h3 className="font-bold text-lg mb-3">✨ Generate Daily Recap</h3>
                 <p className="text-sm text-gray-600 mb-3">Generates a recap of all pending active tasks (excludes completed and Come Back tasks). Urgent tasks are flagged. Dr. K's notes are included inline.</p>
