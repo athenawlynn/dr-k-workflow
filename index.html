@@ -397,124 +397,70 @@ const DailyTaskTracker = ({ onLogout }) => {
     updatedAt: task.updatedAt || Date.now()
   });
 
-  const mergeTasks = (sheetsArr, localArr) => {
-    const map = new Map();
-    // Local is source of truth for what exists
-    for (const t of localArr) {
-      if (t && t.id) map.set(String(t.id), t);
-    }
-    // Only update existing local tasks if Sheets version is strictly newer
-    // Never resurrect tasks deleted locally
-    for (const t of sheetsArr) {
-      if (!t || !t.id) continue;
-      const key = String(t.id);
-      const existing = map.get(key);
-      if (!existing) {
-        continue; // deleted locally — do not restore from Sheets
-      } else {
-        const sheetsTs = t.updatedAt || 0;
-        const localTs  = existing.updatedAt || 0;
-        if (sheetsTs > localTs) map.set(key, t); // Sheets strictly newer
-        // else keep local
-      }
-    }
-    return removeDuplicateTasks([...map.values()].map(normalizeTask).filter(Boolean));
-  };
+  // ── SHEETS IS THE SINGLE SOURCE OF TRUTH ──
+  // No merge logic. Load from Sheets. Save to Sheets. localStorage is display cache only.
 
-  const writeLocalBackup = (list) => {
-    if (!list || list.length === 0) return;
-    try {
-      // 'safe' backup only grows — never written if result has fewer tasks
-      const prev = localStorage.getItem('tasks-backup-safe');
-      const prevCount = prev ? JSON.parse(prev).length : 0;
-      if (list.length >= prevCount) localStorage.setItem('tasks-backup-safe', JSON.stringify(list));
-      localStorage.setItem('tasks-backup-latest', JSON.stringify(list));
-    } catch(e) {}
-  };
-
-  const getBestLocalBackup = () => {
-    let latest = [], safe = [];
-    try { const b = localStorage.getItem('tasks-backup-latest'); if (b) latest = JSON.parse(b); } catch(e) {}
-    try { const b = localStorage.getItem('tasks-backup-safe');   if (b) safe   = JSON.parse(b); } catch(e) {}
-    return latest.length >= safe.length ? latest : safe;
+  const writeLocalCache = (list) => {
+    try { localStorage.setItem('tasks-backup-latest', JSON.stringify(list)); } catch(e) {}
   };
 
   const loadTasksFromStorage = async () => {
     setIsLoading(true); setSaveError(null);
 
-    // Show local data immediately so the UI is never blank while fetching
-    const localTasks = getBestLocalBackup().map(normalizeTask).filter(Boolean);
-    if (localTasks.length > 0) setTasks(localTasks);
+    // Show cached data immediately while Sheets loads (display only, never used as source of truth)
+    try {
+      const cached = localStorage.getItem('tasks-backup-latest');
+      if (cached) {
+        const c = JSON.parse(cached).map(normalizeTask).filter(Boolean);
+        if (c.length > 0) setTasks(c);
+      }
+    } catch(e) {}
 
     try {
-      const res  = await fetch(SHEETS_API_URL + '?action=getTasks');
+      const res  = await fetch(SHEETS_API_URL + '?action=getTasks', { redirect: 'follow' });
       const data = JSON.parse(await res.text());
-
-      if (data.success && Array.isArray(data.tasks) && data.tasks.length > 0) {
-        const sheetsTasks = data.tasks.map(normalizeTask).filter(Boolean);
-
-        if (localTasks.length === 0) {
-          // Cold start — just use Sheets
-          const clean = removeDuplicateTasks(sheetsTasks);
-          setTasks(clean);
-          writeLocalBackup(clean);
-        } else {
-          // ── MERGE: union of both sets, newer updatedAt wins per task id ──
-          const merged = mergeTasks(sheetsTasks, localTasks);
-          setTasks(merged);
-          writeLocalBackup(merged);
-
-          // Always push merged result back to Sheets to keep deletions in sync
-          if (merged.length !== sheetsTasks.length) {
-            fetch(SHEETS_API_URL, { method:'POST', redirect:'follow', body: JSON.stringify({ type:'tasks', tasks: merged }) })
-              .then(() => setLastSaveTime(new Date().toLocaleTimeString()))
-              .catch(() => {});
-          }
-        }
+      if (data.success && Array.isArray(data.tasks)) {
+        const clean = removeDuplicateTasks(data.tasks.map(normalizeTask).filter(Boolean));
+        setTasks(clean);
+        writeLocalCache(clean);
       } else {
-        // Sheets returned empty — keep local, don't wipe
-        if (localTasks.length > 0) setSaveError('Sheets returned no data — showing local backup.');
+        setSaveError('Could not load from Sheets — showing cached data.');
       }
     } catch(e) {
-      if (localTasks.length > 0) setSaveError('Could not reach Sheets — showing local backup.');
-      else setTasks([]);
+      setSaveError('Could not reach Sheets — showing cached data.');
     } finally { setIsLoading(false); }
   };
 
   const saveTasksToStorage = async (list) => {
-    if (!list || list.length === 0) return { success: false };
     setIsSaving(true); setSaveError(null);
-    // Stamp each task with current time before saving
     const clean = removeDuplicateTasks(list.map(t => stampTask(normalizeTask(t))).filter(Boolean));
-    writeLocalBackup(clean);
+    writeLocalCache(clean);
     try {
       await fetch(SHEETS_API_URL, { method:'POST', redirect:'follow', body: JSON.stringify({ type:'tasks', tasks: clean }) });
       setLastSaveTime(new Date().toLocaleTimeString());
       return { success: true };
     } catch(e) {
-      setSaveError('Save may have failed — will retry on next sync.');
+      setSaveError('Save failed — check connection and try again.');
       return { success: false };
     } finally { setIsSaving(false); }
   };
 
   const restoreFromBackup = () => {
-    const best = getBestLocalBackup();
-    if (best.length > 0) {
-      try { setTasks(best.map(normalizeTask).filter(Boolean)); alert('Restored ' + best.length + ' tasks from local backup'); }
-      catch(e) { alert('Backup corrupted'); }
-    } else { alert('No local backup found'); }
+    // Sheets is source of truth — just reload from Sheets
+    loadTasksFromStorage();
   };
 
   const forcePushToSheets = async () => {
     if (!window.confirm('This will overwrite Google Sheets with exactly what you see on screen right now. Continue?')) return;
-    const localTasks = getBestLocalBackup().map(normalizeTask).filter(Boolean);
-    if (localTasks.length === 0) { alert('No local tasks found — aborting.'); return; }
+    if (tasks.length === 0) { alert('No tasks on screen — aborting.'); return; }
     setIsSaving(true);
     try {
-      await fetch(SHEETS_API_URL, { method:'POST', redirect:'follow', body: JSON.stringify({ type:'tasks', tasks: localTasks }) });
+      const clean = removeDuplicateTasks(tasks.map(normalizeTask).filter(Boolean));
+      await fetch(SHEETS_API_URL, { method:'POST', redirect:'follow', body: JSON.stringify({ type:'tasks', tasks: clean }) });
+      writeLocalCache(clean);
       setLastSaveTime(new Date().toLocaleTimeString());
       setSaveError(null);
-      alert('Done! Sheets now matches your local tasks (' + localTasks.length + ' tasks).');
+      alert('Done! Sheets now has ' + clean.length + ' tasks.');
     } catch(e) {
       setSaveError('Force push failed — check connection.');
     } finally { setIsSaving(false); }
@@ -1033,8 +979,8 @@ const DailyTaskTracker = ({ onLogout }) => {
                               {task.comeBackDate && <button onClick={()=>clearComeBackDate(task.id)} className="px-2 py-1 bg-gray-200 hover:bg-gray-300 rounded text-xs">Clear</button>}
                             </div>
                             <div className="mt-4 pt-4 border-t-2">
-                              <button onClick={()=>toggleNotes(task.id)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${hasNotes(task)?'bg-amber-100 text-amber-800 border border-amber-300':'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-                                📝 Notes {hasNotes(task)?'(has notes)':''} {expandedNotes[task.id]?'▲':'▼'}
+                              <button onClick={()=>toggleNotes(task.id)} className={`w-full py-2.5 rounded-xl text-sm font-bold tracking-wide shadow-sm transition-all ${hasNotes(task)?'bg-amber-400 text-amber-900 border-2 border-amber-500 hover:bg-amber-500':'bg-indigo-100 text-indigo-800 border-2 border-indigo-300 hover:bg-indigo-200'}`}>
+                                📝 {hasNotes(task) ? '✏️ Notes (has notes)' : 'Add Notes'} {expandedNotes[task.id]?'▲':'▼'}
                               </button>
                               {expandedNotes[task.id] && (
                                 <div className="mt-3 space-y-3">
@@ -1124,7 +1070,7 @@ const DailyTaskTracker = ({ onLogout }) => {
                           <input type="date" value={task.comeBackDate||''} onChange={(e)=>setComeBackDate(task.id,e.target.value)} className="px-2 py-1 border rounded text-xs" min={new Date().toISOString().split('T')[0]}/>
                         </div>
                         <div className="mt-3">
-                          <button onClick={()=>toggleNotes(task.id)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${hasNotes(task)?'bg-amber-100 text-amber-800 border border-amber-300':'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>📝 Notes {hasNotes(task)?'(has notes)':''} {expandedNotes[task.id]?'▲':'▼'}</button>
+                          <button onClick={()=>toggleNotes(task.id)} className={`w-full py-2.5 rounded-xl text-sm font-bold tracking-wide shadow-sm transition-all ${hasNotes(task)?'bg-amber-400 text-amber-900 border-2 border-amber-500 hover:bg-amber-500':'bg-indigo-100 text-indigo-800 border-2 border-indigo-300 hover:bg-indigo-200'}`}>📝 {hasNotes(task) ? '✏️ Notes (has notes)' : 'Add Notes'} {expandedNotes[task.id]?'▲':'▼'}</button>
                           {expandedNotes[task.id] && (
                             <div className="mt-3 space-y-3">
                               <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3">
