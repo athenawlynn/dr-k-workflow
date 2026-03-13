@@ -505,6 +505,21 @@ const DailyTaskTracker = ({ onLogout }) => {
     } else { alert('No local backup found'); }
   };
 
+  const forcePushToSheets = async () => {
+    if (!window.confirm('This will overwrite Google Sheets with exactly what you see on screen right now. Continue?')) return;
+    const localTasks = getBestLocalBackup().map(normalizeTask).filter(Boolean);
+    if (localTasks.length === 0) { alert('No local tasks found — aborting.'); return; }
+    setIsSaving(true);
+    try {
+      await fetch(SHEETS_API_URL, { method:'POST', redirect:'follow', body: JSON.stringify({ type:'tasks', tasks: localTasks }) });
+      setLastSaveTime(new Date().toLocaleTimeString());
+      setSaveError(null);
+      alert('Done! Sheets now matches your local tasks (' + localTasks.length + ' tasks).');
+    } catch(e) {
+      setSaveError('Force push failed — check connection.');
+    } finally { setIsSaving(false); }
+  };
+
   const addTask = async () => {
     if (!formData.description.trim()) { alert('Please enter a task description'); return; }
     const t = stampTask(normalizeTask({ id: Date.now(), ...formData, completed: false, carriedOver: false }));
@@ -962,6 +977,11 @@ const DailyTaskTracker = ({ onLogout }) => {
                   <p><strong>v2.9</strong> — Multi-user merge sync; dual localStorage backup; auto-save</p>
                   <p><strong>v2.4</strong> — New Hires tab; Contacts sync; Come Back tab; Recap overhaul</p>
                 </div>
+              </div>
+              <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded-r-lg">
+                <h3 className="font-bold text-red-900">🚨 Emergency: Force Push Local → Sheets</h3>
+                <p className="text-red-800 text-sm mt-1">Only use this if Sheets has stale/extra tasks and Sync keeps pulling them back. This overwrites Sheets with exactly what's on your screen right now.</p>
+                <button onClick={forcePushToSheets} className="mt-3 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium">🚨 Force Push My Tasks to Sheets</button>
               </div>
               <div className="border-t-2 pt-4">
                 <h3 className="font-bold text-lg mb-3">✨ Generate Daily Recap</h3>
