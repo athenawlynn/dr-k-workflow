@@ -153,6 +153,11 @@ const DailyTaskTracker = ({ onLogout, userRole }) => {
   const formatHireDate = (d) => {
     if (!d || String(d).trim() === '') return null;
     const s = String(d).trim();
+    // Full ISO datetime string e.g. 2026-03-30T00:00:00.000Z — extract date part only
+    if (/^\d{4}-\d{2}-\d{2}T/.test(s)) {
+      const datePart = s.split('T')[0];
+      return new Date(datePart + 'T12:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+    }
     // Already ISO format YYYY-MM-DD
     if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
       return new Date(s + 'T12:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
@@ -165,7 +170,7 @@ const DailyTaskTracker = ({ onLogout, userRole }) => {
     // Try native parse as last resort
     const dt = new Date(s);
     if (!isNaN(dt)) return dt.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
-    return null; // don't show "Invalid Date"
+    return null;
   };
 
   const saveNewHiresToSheets = async (hiresToSave) => {
@@ -1167,7 +1172,7 @@ const DailyTaskTracker = ({ onLogout, userRole }) => {
                           }
                           {hire.photoUrl && <div className="w-40 h-40 rounded-full bg-indigo-100 items-center justify-center text-6xl border-4 border-indigo-200 mb-3" style={{display:'none'}}>👤</div>}
                           <h3 className="font-bold text-gray-900 text-xl">{hire.name}</h3>
-                          {hire.position && <p className="text-sm text-indigo-600 font-semibold mt-1">{hire.position}</p>}
+                          {hire.position && !/^\d{4}-\d{2}-\d{2}/.test(String(hire.position)) && <p className="text-sm text-indigo-600 font-semibold mt-1">{hire.position}</p>}
                         </div>
                         <div className="space-y-1.5 text-sm">
                           {hire.startDate && formatHireDate(hire.startDate) && <div className="flex items-center gap-2"><span className="text-gray-400">📅</span><span className="text-gray-700">Start: {formatHireDate(hire.startDate)}</span></div>}
