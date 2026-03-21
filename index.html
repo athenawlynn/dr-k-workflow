@@ -356,10 +356,17 @@ const DailyTaskTracker = ({ onLogout, userRole }) => {
   };
   const loadContactsFromStorage = async () => {
     try {
-      const res = await fetch(SHEETS_API_URL + '?action=getContacts');
+      const res = await fetch(SHEETS_API_URL + '?action=getContacts', { redirect: 'follow' });
       const data = JSON.parse(await res.text());
-      if (data.success && data.contacts && data.contacts.length > 0) { setContacts(data.contacts); localStorage.setItem('contacts-backup', JSON.stringify(data.contacts)); }
-    } catch(e) { const b = localStorage.getItem('contacts-backup'); if (b) { try { const p = JSON.parse(b); if (p.length > 0) setContacts(p); } catch(e2) {} } }
+      if (data.success && Array.isArray(data.contacts) && data.contacts.length > 0) {
+        // Only update if we got valid contact objects (not just numbers)
+        const valid = data.contacts.filter(c => c && typeof c === 'object' && c.name);
+        if (valid.length > 0) { setContacts(valid); localStorage.setItem('contacts-backup', JSON.stringify(valid)); }
+      }
+    } catch(e) {
+      const b = localStorage.getItem('contacts-backup');
+      if (b) { try { const p = JSON.parse(b); if (p.length > 0) setContacts(p); } catch(e2) {} }
+    }
   };
   const addContact = async () => {
     if (!contactForm.name.trim()) { alert('Please enter a contact name'); return; }
