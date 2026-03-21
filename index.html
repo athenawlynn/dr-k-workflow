@@ -1143,7 +1143,7 @@ const DailyTaskTracker = ({ onLogout, userRole }) => {
             </div>
             {newHires.length===0 ? <div className="text-center py-12 mb-6"><div className="text-5xl mb-4">👥</div><p className={darkMode?'text-gray-400':'text-gray-500'}>No new hire records yet</p></div> : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                {[...newHires].sort((a,b) => b.id - a.id).map(hire=>(
+                {[...newHires].sort((a,b) => { const da = new Date(String(a.startDate).split('T')[0]); const db = new Date(String(b.startDate).split('T')[0]); return db - da; }).map(hire=>(
                   <div key={hire.id} className={`border rounded-xl p-5 ${editingNewHireId===hire.id?'bg-blue-50 border-blue-400 ring-2 ring-blue-300':'bg-white'} hover:shadow-md transition-shadow`}>
                     {editingNewHireId===hire.id ? (
                       <div className="space-y-3">
